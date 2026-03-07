@@ -753,6 +753,12 @@ function pgHome(){
   const best=cnt?Math.max(...s.filter(x=>x.stats).map(x=>pct(x.stats.totalScore,x.stats.maxScore))):null;
   return`
 <div class="scroll-page" style="min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:44px 24px calc(90px + env(safe-area-inset-bottom,0px))">
+  <!-- Help button top-right -->
+  <div style="position:fixed;top:env(safe-area-inset-top,0px);right:0;padding:10px 14px;z-index:250">
+    <button class="btn btn-icon" onclick="navTo('guide')" style="border-color:var(--border3);color:var(--text2)" title="How to use">
+      <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="9" r="8"/><path d="M9 13v-1"/><path d="M9 10c0-1.5 2-1.5 2-3a2 2 0 10-4 0"/></svg>
+    </button>
+  </div>
   <div class="fade-up" style="margin-bottom:24px">
     <svg width="78" height="78" viewBox="0 0 78 78" fill="none">
       <circle cx="39" cy="39" r="36" stroke="rgba(0,255,136,0.12)" stroke-width="1.5"/>
@@ -786,7 +792,10 @@ function pgHome(){
   <div class="fade-up s4" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;width:100%;max-width:320px;margin-top:28px">
     ${[['ISSF','10m Standard'],['0.177','Optimised'],['TRACK','Local Storage']].map(([t,d])=>`<div class="card" style="padding:12px 8px;text-align:center"><div style="font-family:var(--head);font-size:.5rem;letter-spacing:.12em;color:var(--green);margin-bottom:5px">${t}</div><div style="color:var(--text3);font-size:.65rem;line-height:1.3">${d}</div></div>`).join('')}
   </div>`}
-  <p class="fade-up s6" style="font-family:var(--mono);font-size:.58rem;letter-spacing:.14em;color:var(--text4);margin-top:32px;text-align:center">Free For All by Dilan</p>
+  <div class="fade-up s6" style="margin-top:32px;text-align:center">
+    <p style="font-family:var(--head);font-size:.72rem;letter-spacing:.22em;color:var(--green);text-shadow:0 0 12px rgba(0,255,136,0.5)">FREE FOR ALL</p>
+    <p style="font-family:var(--mono);font-size:.68rem;letter-spacing:.14em;color:var(--text2);margin-top:3px">by Dilan</p>
+  </div>
 
   <!-- Data Safety Panel -->
   <div class="fade-up s6" style="width:100%;max-width:320px;margin-top:18px;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r);overflow:hidden">
@@ -1794,10 +1803,186 @@ function pgCamera(){
 }
 
 // ══════════════════════════════════════════════════════════════════
-//  NAV
+//  PAGE: HOW TO USE
+// ══════════════════════════════════════════════════════════════════
+function pgGuide(){
+  const steps=[
+    {
+      num:'01',color:'var(--green)',
+      title:'Shoot Your Target',
+      body:'Fire your shots at a standard 10m air gun target (ISSF paper or card). Make sure the pellet holes are clearly visible — good lighting helps a lot. A clean white/cream target against a dark background gives the best results.'
+    },
+    {
+      num:'02',color:'var(--blue)',
+      title:'Photograph the Target',
+      body:'Use your phone camera or upload a saved image. Hold the phone parallel to the target — try to avoid angles. The target should fill most of the frame. Natural light or a bright room works best. Avoid shadows across the target face.'
+    },
+    {
+      num:'03',color:'var(--amber)',
+      title:'Configure Your Session',
+      body:'Select your target type (10m Air Pistol, 10m Air Rifle, etc.), caliber (.177 is standard), and scoring method (ISSF Decimal is recommended for competition training). Your choices are remembered for next time.'
+    },
+    {
+      num:'04',color:'var(--green)',
+      title:'Place Shot Markers',
+      body:'The editor opens automatically. Pinch to zoom in close, then tap exactly on each pellet hole to place a red marker. Drag to reposition. Use UNDO if you make a mistake. Zoom in as much as needed for precision — this step directly affects your score accuracy.'
+    },
+    {
+      num:'05',color:'var(--blue)',
+      title:'Apply & Review Results',
+      body:'Tap APPLY to calculate scores. The app scores each shot based on its distance from the target centre, following ISSF ring values. You\'ll see your total score, MPI (Mean Point of Impact), extreme spread, and an AI coaching tip.'
+    },
+    {
+      num:'06',color:'var(--amber)',
+      title:'Track Your Progress',
+      body:'Every session is saved automatically. After 2+ sessions the STATS tab shows score trends, grouping consistency, and MPI drift over time. After 3+ sessions the REPORT tab gives a full monthly breakdown with performance grades.'
+    },
+  ];
+
+  const faqs=[
+    {
+      q:'Can multiple shooters use the same device?',
+      a:'No — and this is important. All session data is stored together on one device with no separate profiles. If two shooters use the same device, their history, progress charts, and averages will be completely mixed together, making the statistics meaningless for both. One device must be used by one shooter only. If you share a device, use the Export Backup feature to save your data before handing it over, and restore it when you get it back.',
+      warn:true
+    },
+    {
+      q:'How accurate is the scoring?',
+      a:'Accuracy depends almost entirely on how precisely you place the shot markers. The scoring maths itself is exact — it measures pixel distance from the target centre and maps it to ISSF ring values. Zoom in close when placing markers for best results. Placement error of even a few pixels can shift a score by 0.1–0.3 points.'
+    },
+    {
+      q:'What happens if I clear Safari / browser data?',
+      a:'Clearing browser history alone is safe. However "Clear History and Website Data" in Safari Settings, or equivalent in other browsers, WILL delete your session data. Use Export Backup regularly to protect your progress. Installing the app to your Home Screen gives it isolated storage that is not affected by browser data clearing.'
+    },
+    {
+      q:'Does this work offline?',
+      a:'Yes, fully. Once loaded the app works completely offline — no internet connection is needed to place shots, score, or view your history and progress. The only features that need a connection are loading Google Fonts (display only) and the optional AI coaching tips.'
+    },
+    {
+      q:'What target types are supported?',
+      a:'10m Air Pistol, 10m Air Rifle, 25m Air Pistol, Field Target, Hunter FT, and Custom. All use standard circular ring scoring. The app is optimised for 0.177 (4.5mm) caliber, which is the ISSF standard for 10m events.'
+    },
+    {
+      q:'How do I fix a wrong shot placement?',
+      a:'Tap the shot marker to select it (it turns orange), then drag it to the correct position. Or tap DELETE to remove it and tap again in the right spot. Use UNDO to step back through your recent changes. You can also re-open any saved session from History and tap EDIT to correct placements.'
+    },
+  ];
+
+  return`
+<div class="scroll-page" style="padding-bottom:calc(90px + env(safe-area-inset-bottom,0px))">
+  <div class="ph">
+    <button class="btn-icon btn" onclick="navTo('home')">${I.back}</button>
+    <span class="ph-title">HOW TO USE</span>
+    <span class="ph-sub">AIRSCAN PRO</span>
+  </div>
+
+  <!-- ⚠️ ONE DEVICE ONE SHOOTER — TOP OF PAGE, CANNOT BE MISSED -->
+  <div style="background:rgba(255,58,74,0.10);border-bottom:2px solid var(--red)">
+    <div style="padding:18px 18px 14px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+        <div style="width:38px;height:38px;flex-shrink:0;border-radius:50%;background:rgba(255,58,74,0.18);border:2px solid var(--red);display:flex;align-items:center;justify-content:center">
+          <svg width="18" height="18" fill="none" stroke="var(--red)" stroke-width="2.2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        </div>
+        <div>
+          <div style="font-family:var(--head);font-size:.78rem;letter-spacing:.16em;color:var(--red)">IMPORTANT — READ FIRST</div>
+          <div style="font-family:var(--head);font-size:.6rem;letter-spacing:.12em;color:rgba(255,58,74,0.7);margin-top:2px">ONE DEVICE · ONE SHOOTER · PERMANENTLY</div>
+        </div>
+      </div>
+
+      <p style="color:var(--text);font-size:1rem;line-height:1.7;margin-bottom:12px">
+        This app has <strong style="color:#fff">no user accounts, no profiles, and no way to separate data.</strong>
+        Every session you record is stored together on this one device.
+      </p>
+      <p style="color:var(--text);font-size:1rem;line-height:1.7;margin-bottom:14px">
+        If a second shooter uses this device — even once — their sessions will be <strong style="color:var(--red)">permanently mixed</strong> into your history.
+        Your progress charts, score averages, monthly breakdowns and MPI trends will all be corrupted.
+        <strong style="color:#fff">There is no way to undo this or separate the data afterwards.</strong>
+      </p>
+
+      <div style="background:rgba(5,8,16,0.5);border:1px solid rgba(255,58,74,0.35);border-radius:8px;padding:13px 14px;display:flex;flex-direction:column;gap:9px">
+        <div style="display:flex;align-items:flex-start;gap:10px">
+          <span style="color:var(--green);font-size:1rem;flex-shrink:0;margin-top:1px">✓</span>
+          <span style="color:var(--text);font-size:.92rem;line-height:1.5">This device belongs to <strong>one shooter only</strong> and should stay that way permanently.</span>
+        </div>
+        <div style="display:flex;align-items:flex-start;gap:10px">
+          <span style="color:var(--green);font-size:1rem;flex-shrink:0;margin-top:1px">✓</span>
+          <span style="color:var(--text);font-size:.92rem;line-height:1.5">Every shooter on a team <strong>needs their own separate device.</strong></span>
+        </div>
+        <div style="display:flex;align-items:flex-start;gap:10px">
+          <span style="color:var(--green);font-size:1rem;flex-shrink:0;margin-top:1px">✓</span>
+          <span style="color:var(--text);font-size:.92rem;line-height:1.5">Use <strong>Export Backup</strong> (on the home screen) to save your data to a file — keep it safe.</span>
+        </div>
+        <div style="display:flex;align-items:flex-start;gap:10px">
+          <span style="color:var(--red);font-size:1rem;flex-shrink:0;margin-top:1px">✕</span>
+          <span style="color:var(--text2);font-size:.92rem;line-height:1.5">Never let another shooter record sessions on your device — the damage is <strong style="color:var(--red)">irreversible.</strong></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Intro banner -->
+  <div style="padding:20px 18px;background:linear-gradient(135deg,rgba(0,255,136,0.07),rgba(0,212,255,0.04));border-bottom:1px solid var(--border)">
+    <div style="font-family:var(--head);font-size:.62rem;letter-spacing:.2em;color:var(--green);margin-bottom:8px">GETTING STARTED</div>
+    <p style="color:var(--text);font-size:1rem;line-height:1.65">AirScan Pro turns your phone camera into a precision shot analysis tool for 0.177 air gun training. Follow the steps below for accurate results.</p>
+  </div>
+
+  <!-- Step-by-step -->
+  <div style="padding:18px 18px 4px">
+    <div class="slbl">WORKFLOW — 6 STEPS</div>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:0">
+    ${steps.map((s,i)=>`
+    <div class="fade-up" style="animation-delay:${i*0.05}s;display:flex;gap:14px;padding:16px 18px;border-bottom:1px solid var(--border)">
+      <div style="flex-shrink:0;width:36px;height:36px;border-radius:50%;border:2px solid ${s.color};display:flex;align-items:center;justify-content:center;font-family:var(--head);font-size:.62rem;font-weight:700;color:${s.color};margin-top:2px">${s.num}</div>
+      <div style="flex:1">
+        <div style="font-family:var(--head);font-size:.72rem;letter-spacing:.1em;color:var(--text);margin-bottom:6px">${s.title}</div>
+        <p style="color:var(--text2);font-size:.92rem;line-height:1.6">${s.body}</p>
+      </div>
+    </div>`).join('')}
+  </div>
+
+  <!-- FAQs -->
+  <div style="padding:18px 18px 12px">
+    <div class="slbl">FREQUENTLY ASKED QUESTIONS</div>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:0">
+    ${faqs.map((f,i)=>`
+    <div class="fade-up" style="animation-delay:${i*0.04}s;border-bottom:1px solid var(--border)">
+      <button onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='block'?'none':'block';this.querySelector('.faq-arr').style.transform=this.nextElementSibling.style.display==='block'?'rotate(90deg)':'rotate(0deg)'"
+        style="width:100%;display:flex;align-items:center;justify-content:space-between;gap:14px;padding:15px 18px;background:none;border:none;cursor:pointer;text-align:left;touch-action:manipulation;-webkit-tap-highlight-color:transparent">
+        <span style="font-family:var(--body);font-size:.95rem;font-weight:600;color:${f.warn?'var(--amber)':'var(--text)'};line-height:1.4">${f.q}</span>
+        <svg class="faq-arr" width="18" height="18" fill="none" stroke="var(--text3)" stroke-width="2" style="flex-shrink:0;transition:transform .2s"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
+      <div style="display:none;padding:0 18px 16px">
+        <p style="color:var(--text2);font-size:.92rem;line-height:1.68">${f.a}</p>
+      </div>
+    </div>`).join('')}
+  </div>
+
+  <!-- Tips block -->
+  <div style="margin:20px 18px 8px">
+    <div class="slbl">PRO TIPS</div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      ${[
+        ['📸','Photography','Photograph at the range right after shooting — before the target is moved or folded. A flat target gives the most accurate ring measurements.'],
+        ['🔍','Zoom in','In the editor, always zoom to at least 200–300% before placing markers. Small placement errors compound when scoring multiple shots.'],
+        ['💾','Backup regularly','Export your backup after every few sessions. Store the file in iCloud, Google Drive or send it to yourself via email.'],
+        ['📲','Install the app','Add to Home Screen for the best experience — full screen, faster loading, and storage isolated from your browser.'],
+      ].map(([em,title,tip])=>`
+      <div style="display:flex;gap:12px;padding:13px 14px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r)">
+        <span style="font-size:1.3rem;flex-shrink:0;line-height:1.3">${em}</span>
+        <div><div style="font-family:var(--head);font-size:.65rem;letter-spacing:.1em;color:var(--text);margin-bottom:4px">${title}</div><p style="color:var(--text2);font-size:.88rem;line-height:1.55">${tip}</p></div>
+      </div>`).join('')}
+    </div>
+  </div>
+
+  <div style="padding:20px 18px;text-align:center;color:var(--text4);font-family:var(--mono);font-size:.65rem;letter-spacing:.1em">
+    AirScan Pro · Free For All by Dilan
+  </div>
+</div>`;
+}
 // ══════════════════════════════════════════════════════════════════
 function renderNav(){
-  const navViews=['home','results','history','progress','report'];
+  const navViews=['home','results','history','progress','report','guide'];
   if(!navViews.includes(App.view))return'';
   const tabs=[
     {id:'home',   icon:`<svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><line x1="2" y1="12" x2="7" y2="12"/><line x1="17" y1="12" x2="22" y2="12"/><line x1="12" y1="2" x2="12" y2="7"/><line x1="12" y1="17" x2="12" y2="22"/><circle cx="12" cy="12" r="2.5" fill="currentColor" stroke="none"/></svg>`, label:'SCAN'},
@@ -1832,6 +2017,7 @@ function render(){
   else if(App.view==='progress')   html=pgProgress();
   else if(App.view==='report')     html=pgReport();
   else if(App.view==='editor')     html=pgEditor();
+  else if(App.view==='guide')      html=pgGuide();
   root.innerHTML=html+renderNav();
   if(App.view==='camera'){const v=document.getElementById('camvid');if(v&&App.stream)v.srcObject=App.stream;}
   if(App.view==='progress'){
