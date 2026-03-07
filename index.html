@@ -642,27 +642,18 @@ const App={
 const STEPS=['Loading image','Preprocessing (CLAHE)','Perspective alignment','Ring detection','Bullet detection','Calculating scores','Rendering overlay','AI coaching'];
 
 // ══════════════════════════════════════════════════════════════════
-//  PIPELINE
+//  PIPELINE — go straight to manual editor, no auto-detection
 // ══════════════════════════════════════════════════════════════════
 async function runAnalysis(url){
-  const sl=ms=>new Promise(r=>setTimeout(r,ms));
-  App.setState({view:'processing',procStep:0,tip:null,tipLoading:false});
-  for(let i=0;i<STEPS.length-1;i++){await sl(i===3?600:i===4?800:360);App.procStep=i+1;render();}
   const img=await loadImg(url);
   const canvas=toCanvas(img,920);
-  const holes=detectHoles(canvas);
-  const scored=scoreShots(holes,canvas,App.cfg.mode);
-  const stats=calcStats(scored,canvas);
-  const overlayUrl=drawOverlay(canvas,scored,stats);
+  Ed.init(url,[]);
+  Ed.img=img;Ed.imgW=canvas.width;Ed.imgH=canvas.height;
+  // create a blank pending session (saved on apply)
   const id=Date.now();
-  const session={id,cfg:{...App.cfg},scored,stats,overlayUrl,imgUrl:url,ts:new Date().toISOString(),tip:null};
-  DB.add(session);
+  const session={id,cfg:{...App.cfg},scored:[],stats:null,overlayUrl:null,imgUrl:url,ts:new Date().toISOString(),tip:null,pending:true};
   App.results=session;
-  App.setState({view:'results',tipLoading:true,tip:null,viewSession:null});
-  getSessionTip(stats,scored.length,App.cfg.type,App.cfg.caliber).then(t=>{
-    if(t){App.tip=t;DB.updateTip(id,t);}
-    App.setState({tipLoading:false});
-  });
+  App.setState({view:'editor',tip:null,tipLoading:false,viewSession:null});
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -768,13 +759,8 @@ function pgConfigure(){
         ${[['integer','Integer 10,9,8…'],['decimal','Decimal 10.9…'],['ipsc','IPSC A/C/D']].map(([v,l])=>`<button class="chip ${sel('mode',v)}" onclick="App.cfg.mode='${v}';App.render()">${l}</button>`).join('')}
       </div>
     </div>
-    <div class="fade-up s3">
-      <div class="slbl" style="margin-bottom:12px">EXPECTED SHOTS <span style="font-family:var(--mono);color:var(--blue);margin-left:8px">${c.shots}</span></div>
-      <input type="range" min="1" max="30" value="${c.shots}" oninput="App.cfg.shots=+this.value;App.render()"/>
-      <div style="display:flex;justify-content:space-between;margin-top:5px;color:var(--text4);font-size:.7rem"><span>1</span><span>30</span></div>
-    </div>
-    <button class="btn btn-primary fade-up s4" style="width:100%;padding:18px;font-size:.8rem;margin-top:4px" onclick="runAnalysis(App.imgUrl)">
-      ${I.scan}&nbsp; ANALYZE TARGET
+    <button class="btn btn-primary fade-up s3" style="width:100%;padding:18px;font-size:.8rem;margin-top:4px" onclick="runAnalysis(App.imgUrl)">
+      ${I.edit}&nbsp; PLACE SHOTS MANUALLY
     </button>
   </div>
 </div>`;
@@ -1164,7 +1150,7 @@ function pgEditor(){
 <div style="display:flex;flex-direction:column;height:100vh;overflow:hidden">
   <!-- Header -->
   <div class="ph" style="flex-shrink:0">
-    <button class="btn-icon btn" onclick="App.setState({view:'results'})">${I.back}</button>
+    <button class="btn-icon btn" onclick="App.setState({view:App.results?.pending?'home':'results'})">${I.back}</button>
     <span class="ph-title">MANUAL EDITOR</span>
     <div style="display:flex;align-items:center;gap:8px">
       <span id="ed-zoom" style="font-family:var(--mono);font-size:.65rem;color:var(--text3)">100%</span>
@@ -1738,7 +1724,7 @@ function render(){
 // ══════════════════════════════════════════════════════════════════
 function navTo(id){App.setState({view:id,viewSession:null});}
 function onFile(e){const f=e.target.files[0];if(!f)return;App.imgUrl=URL.createObjectURL(f);App.setState({view:'configure'});}
-function runDemo(){const url=genDemo(App.cfg.shots);App.imgUrl=url;runAnalysis(url);}
+function runDemo(){const url=genDemo(8);App.imgUrl=url;runAnalysis(url);}
 
 async function startCam(){
   try{
@@ -1807,24 +1793,25 @@ function openEditor(){
 }
 
 async function applyEdits(){
-  if(!Ed.img){App.setState({view:'results'});return;}
-  // rebuild scored shots from edited positions
+  if(!Ed.img||!Ed.shots.length){
+    toast('Place at least one shot first');return;
+  }
   const canvas=document.createElement('canvas');
   canvas.width=Ed.imgW;canvas.height=Ed.imgH;
   canvas.getContext('2d').drawImage(Ed.img,0,0);
   const newScored=scoreShots(Ed.shots,canvas,App.results?.cfg?.mode||'integer');
   const newStats=calcStats(newScored,canvas);
   const newOverlay=drawOverlay(canvas,newScored,newStats);
-  // update results object
-  const updated={...App.results,scored:newScored,stats:newStats,overlayUrl:newOverlay};
+  const updated={...App.results,scored:newScored,stats:newStats,overlayUrl:newOverlay,pending:false};
   App.results=updated;App.tip=null;App.tipLoading=false;
-  // update in DB
+  // Save or update in DB
   const sessions=DB.sessions;
   const idx=sessions.findIndex(s=>s.id===updated.id);
   if(idx>=0){sessions[idx]={...sessions[idx],...updated};DB.sessions=sessions;}
-  toast('Shots updated — scores recalculated!');
+  else{DB.add(updated);}
+  toast('Shots saved — scores calculated!');
   App.setState({view:'results',viewSession:null});
-  // Re-fetch AI tip with new data
+  // AI tip
   if(newStats&&newScored.length>0){
     App.tipLoading=true;App.render();
     getSessionTip(newStats,newScored.length,App.results.cfg?.type||'IPSC',App.results.cfg?.caliber||'9mm').then(t=>{
