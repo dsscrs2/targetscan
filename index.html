@@ -990,8 +990,8 @@ function pgResults(r=App.results){
       ${I.edit}&nbsp; EDIT SHOTS MANUALLY
     </button>
     <div style="display:flex;gap:10px">
-      <button class="btn btn-ghost" style="flex:1" onclick="dlImg('${overlayUrl||''}')">${I.dl} Image</button>
-      <button class="btn btn-ghost" style="flex:1" onclick="dlCSV()">${I.dl} CSV</button>
+      <button class="btn btn-ghost" style="flex:1" onclick="dlImg('${overlayUrl||''}')">${I.dl} Share Image</button>
+      <button class="btn btn-ghost" style="flex:1" onclick="dlCSV()">${I.dl} Share CSV</button>
     </div>
   </div>
 </div>`;
@@ -2119,11 +2119,43 @@ function openSession(id){
 }
 function delSession(id){DB.del(id);toast('Session deleted');render();}
 function confirmClear(){if(confirm('Delete ALL saved sessions? This cannot be undone.')){DB.clear();App.results=null;App.tip=null;toast('All sessions cleared');render();}}
-function dlImg(url){if(!url){toast('No image');return;}const a=document.createElement('a');a.href=url;a.download=`targetscan_${Date.now()}.jpg`;a.click();toast('Image saved!');}
+function dlImg(url){
+  if(!url){toast('No image');return;}
+  const filename=`airscan_${Date.now()}.jpg`;
+  fetch(url).then(r=>r.blob()).then(blob=>{
+    const file=new File([blob],filename,{type:'image/jpeg'});
+    if(navigator.share&&navigator.canShare&&navigator.canShare({files:[file]})){
+      navigator.share({title:'AirScan Pro — Shot Analysis',text:'My shot analysis from AirScan Pro',files:[file]})
+        .catch(e=>{if(e.name!=='AbortError')_fallbackDl(url,filename);});
+    } else if(navigator.share){
+      // Share URL fallback (no file support)
+      const objUrl=URL.createObjectURL(blob);
+      navigator.share({title:'AirScan Pro — Shot Analysis',url:objUrl})
+        .catch(()=>_fallbackDl(url,filename));
+    } else {
+      _fallbackDl(url,filename);
+    }
+  }).catch(()=>_fallbackDl(url,filename));
+}
 function dlCSV(){
   const r=App.results;if(!r?.scored?.length){toast('No data');return;}
   const csv=['Shot,X,Y,Score,Decimal,Distance_px',...r.scored.map(s=>`${s.id},${~~s.cx},${~~s.cy},${s.score},${s.decimal},${s.dist_px.toFixed(1)}`)].join('\n');
-  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download=`shots_${Date.now()}.csv`;a.click();toast('CSV exported!');
+  const blob=new Blob([csv],{type:'text/csv'});
+  const filename=`airscan_shots_${Date.now()}.csv`;
+  const file=new File([blob],filename,{type:'text/csv'});
+  if(navigator.share&&navigator.canShare&&navigator.canShare({files:[file]})){
+    navigator.share({title:'AirScan Pro — Shot Data',text:'My shot data export from AirScan Pro',files:[file]})
+      .catch(e=>{if(e.name!=='AbortError')_fallbackDl(URL.createObjectURL(blob),filename);});
+  } else if(navigator.share){
+    navigator.share({title:'AirScan Pro — Shot Data',text:csv})
+      .catch(()=>_fallbackDl(URL.createObjectURL(blob),filename));
+  } else {
+    _fallbackDl(URL.createObjectURL(blob),filename);
+  }
+}
+function _fallbackDl(url,filename){
+  const a=document.createElement('a');a.href=url;a.download=filename;a.click();
+  toast('File saved!');
 }
 function printReport(){
   window.print();
