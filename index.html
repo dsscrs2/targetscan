@@ -4,6 +4,10 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
 <meta name="theme-color" content="#050810"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="AirScan Pro"/>
+<link rel="manifest" id="pwa-manifest"/>
 <title>AirScan Pro — 0.177 Air Gun Shot Analysis</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Rajdhani:wght@300;400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet"/>
@@ -23,13 +27,16 @@
   --r:8px;
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-html,body{height:100%;min-height:-webkit-fill-available;background:var(--bg);color:var(--text);font-family:var(--body);font-size:16px;overflow-x:hidden}
+html{height:100%;height:-webkit-fill-available}
+body{min-height:100vh;min-height:-webkit-fill-available;background:var(--bg);color:var(--text);font-family:var(--body);font-size:16px;overflow-x:hidden;-webkit-text-size-adjust:100%;text-size-adjust:100%}
 body{background-image:
   radial-gradient(ellipse 100% 60% at 50% 0%,rgba(0,212,255,0.04),transparent),
   linear-gradient(rgba(0,255,136,0.012) 1px,transparent 1px),
   linear-gradient(90deg,rgba(0,255,136,0.012) 1px,transparent 1px);
   background-size:auto,48px 48px,48px 48px}
 #root{max-width:500px;margin:0 auto;min-height:100vh;position:relative}
+/* Momentum scrolling for all scrollable containers */
+.scroll-page{overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior-y:contain}
 ::-webkit-scrollbar{width:2px}::-webkit-scrollbar-track{background:var(--bg)}::-webkit-scrollbar-thumb{background:var(--border3);border-radius:2px}
 
 /* ── ANIMATIONS ── */
@@ -44,17 +51,17 @@ body{background-image:
 .fade-up{animation:fadeUp 0.45s cubic-bezier(.2,.8,.3,1) both}
 .s1{animation-delay:.06s}.s2{animation-delay:.12s}.s3{animation-delay:.18s}.s4{animation-delay:.24s}.s5{animation-delay:.30s}.s6{animation-delay:.36s}
 
-/* ── BUTTONS ── */
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:none;cursor:pointer;font-family:var(--head);letter-spacing:.1em;border-radius:var(--r);transition:all .18s;position:relative;overflow:hidden}
-.btn:active{transform:scale(.96)}
-.btn-primary{background:linear-gradient(135deg,rgba(0,255,136,.18),rgba(0,255,136,.08));border:1px solid var(--green);color:var(--green);padding:15px 24px;font-size:.72rem;font-weight:700}
-.btn-primary:hover{background:linear-gradient(135deg,rgba(0,255,136,.28),rgba(0,255,136,.15));box-shadow:0 0 20px rgba(0,255,136,0.2)}
-.btn-amber{background:linear-gradient(135deg,rgba(255,176,32,.18),rgba(255,176,32,.08));border:1px solid var(--amber);color:var(--amber);padding:15px 24px;font-size:.72rem;font-weight:700}
-.btn-amber:hover{background:linear-gradient(135deg,rgba(255,176,32,.28),rgba(255,176,32,.15))}
-.btn-ghost{background:var(--bg3);border:1px solid var(--border2);color:var(--text2);padding:10px 16px;font-size:.65rem;font-weight:600}
-.btn-ghost:hover{border-color:var(--border3);color:var(--text)}
-.btn-icon{width:38px;height:38px;padding:0;border-radius:50%;background:var(--bg3);border:1px solid var(--border2);color:var(--text3)}
-.btn-danger{background:var(--red-dim);border:1px solid var(--red);color:var(--red);padding:8px 14px;font-size:.62rem;font-weight:600}
+/* ── BUTTONS — all min 44px tall for touch ── */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:none;cursor:pointer;font-family:var(--head);letter-spacing:.1em;border-radius:var(--r);transition:background .18s,box-shadow .18s;position:relative;overflow:hidden;min-height:44px;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+.btn:active{opacity:.82}
+.btn-primary{background:linear-gradient(135deg,rgba(0,255,136,.18),rgba(0,255,136,.08));border:1px solid var(--green);color:var(--green);padding:14px 24px;font-size:.8rem;font-weight:700}
+.btn-primary:active{background:linear-gradient(135deg,rgba(0,255,136,.3),rgba(0,255,136,.18));box-shadow:0 0 20px rgba(0,255,136,0.2)}
+.btn-amber{background:linear-gradient(135deg,rgba(255,176,32,.18),rgba(255,176,32,.08));border:1px solid var(--amber);color:var(--amber);padding:14px 24px;font-size:.8rem;font-weight:700}
+.btn-amber:active{background:linear-gradient(135deg,rgba(255,176,32,.3),rgba(255,176,32,.18))}
+.btn-ghost{background:var(--bg3);border:1px solid var(--border2);color:var(--text2);padding:12px 16px;font-size:.78rem;font-weight:600}
+.btn-ghost:active{border-color:var(--border3);color:var(--text)}
+.btn-icon{width:44px;height:44px;padding:0;border-radius:50%;background:var(--bg3);border:1px solid var(--border2);color:var(--text3);flex-shrink:0}
+.btn-danger{background:var(--red-dim);border:1px solid var(--red);color:var(--red);padding:11px 16px;font-size:.78rem;font-weight:600}
 
 /* ── CARDS ── */
 .card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);overflow:hidden}
@@ -62,52 +69,54 @@ body{background-image:
 .card-glow{border-color:rgba(0,255,136,0.3);box-shadow:0 0 24px rgba(0,255,136,0.06)}
 
 /* ── STAT BOX ── */
-.sbox{background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);padding:14px 10px;text-align:center}
-.sbox-lbl{font-family:var(--head);font-size:.48rem;letter-spacing:.16em;color:var(--text3);margin-bottom:6px}
+.sbox{background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);padding:14px 8px;text-align:center}
+.sbox-lbl{font-family:var(--head);font-size:.6rem;letter-spacing:.12em;color:var(--text3);margin-bottom:6px}
 .sbox-val{font-family:var(--mono);font-size:1.08rem}
-.sbox-unit{font-size:.65rem;color:var(--text3)}
+.sbox-unit{font-size:.72rem;color:var(--text3)}
 
-/* ── RANGE ── */
-input[type=range]{-webkit-appearance:none;width:100%;height:3px;border-radius:2px;background:var(--border2);outline:none}
-input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:var(--green);cursor:pointer;border:2px solid var(--bg);box-shadow:0 0 8px rgba(0,255,136,.4)}
-input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;background:var(--green);cursor:pointer;border:2px solid var(--bg)}
+/* ── RANGE — fat 44px touch target ── */
+input[type=range]{-webkit-appearance:none;width:100%;height:44px;background:transparent;outline:none;cursor:pointer}
+input[type=range]::-webkit-slider-runnable-track{height:4px;border-radius:2px;background:var(--border2)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:26px;height:26px;margin-top:-11px;border-radius:50%;background:var(--green);cursor:pointer;border:2px solid var(--bg);box-shadow:0 0 8px rgba(0,255,136,.4)}
+input[type=range]::-moz-range-thumb{width:26px;height:26px;border-radius:50%;background:var(--green);cursor:pointer;border:2px solid var(--bg)}
 
 /* ── NAV ── */
-.bottom-nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:500px;background:rgba(8,12,24,.98);backdrop-filter:blur(20px);border-top:1px solid rgba(0,212,255,0.18);display:flex;z-index:300;padding-bottom:env(safe-area-inset-bottom)}
-.nav-btn{flex:1;padding:11px 4px 14px;background:none;border:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:5px;transition:all .2s;font-family:var(--head);font-size:.52rem;letter-spacing:.06em;font-weight:600}
+.bottom-nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:500px;background:rgba(8,12,24,.98);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-top:1px solid rgba(0,212,255,0.18);display:flex;z-index:300;padding-bottom:env(safe-area-inset-bottom,0px)}
+.nav-btn{flex:1;min-height:56px;padding:10px 4px 12px;background:none;border:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;transition:color .2s;font-family:var(--head);font-size:.58rem;letter-spacing:.06em;font-weight:600;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
 .nav-btn.active{color:#fff}
 .nav-btn:not(.active){color:rgba(255,255,255,0.38)}
 .nav-btn:not(.active):not([disabled]):active{color:rgba(255,255,255,0.7)}
 .nav-btn.active svg{filter:drop-shadow(0 0 6px rgba(0,255,136,.7))}
 .nav-btn:not(.active) svg{opacity:0.55}
-.nav-active-bar{height:3px;background:var(--green);border-radius:2px;width:28px;margin-bottom:-5px;box-shadow:0 0 8px rgba(0,255,136,0.6)}
+.nav-active-bar{height:3px;background:var(--green);border-radius:2px;width:28px;margin-bottom:-4px;box-shadow:0 0 8px rgba(0,255,136,0.6)}
 
 /* ── PAGE HEADER ── */
-.ph{padding:14px 16px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--border);background:rgba(5,8,16,.85);backdrop-filter:blur(10px);position:sticky;top:0;z-index:200}
-.ph-title{font-family:var(--head);font-size:.78rem;letter-spacing:.18em;color:var(--text);flex:1}
-.ph-sub{font-family:var(--head);font-size:.52rem;letter-spacing:.1em;color:var(--text3)}
+.ph{padding:0 16px;min-height:56px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--border);background:rgba(5,8,16,.92);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);position:sticky;top:0;z-index:200;padding-top:env(safe-area-inset-top,0px)}
+.ph-title{font-family:var(--head);font-size:.82rem;letter-spacing:.18em;color:var(--text);flex:1}
+.ph-sub{font-family:var(--head);font-size:.62rem;letter-spacing:.1em;color:var(--text3)}
 
-/* ── CHIP ── */
-.chip{padding:7px 13px;border-radius:5px;border:1px solid var(--border2);background:var(--bg3);cursor:pointer;font-family:var(--body);font-size:.88rem;font-weight:600;transition:all .15s;color:var(--text2)}
+/* ── CHIP — min 44px touch target ── */
+.chip{min-height:44px;padding:10px 16px;border-radius:8px;border:1px solid var(--border2);background:var(--bg3);cursor:pointer;font-family:var(--body);font-size:.95rem;font-weight:600;transition:all .15s;color:var(--text2);touch-action:manipulation;-webkit-tap-highlight-color:transparent}
 .chip.on{border-color:var(--green);background:var(--green-dim);color:var(--green)}
+.chip:active{opacity:.75}
 
 /* ── SHOT TABLE ── */
-.stbl{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:.78rem}
-.stbl th{padding:8px 12px;background:var(--bg3);color:var(--text3);font-size:.55rem;letter-spacing:.12em;text-align:left;border-bottom:1px solid var(--border2)}
-.stbl td{padding:9px 12px;border-bottom:1px solid var(--border)}
+.stbl{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:.85rem}
+.stbl th{padding:11px 12px;background:var(--bg3);color:var(--text3);font-size:.68rem;letter-spacing:.1em;text-align:left;border-bottom:1px solid var(--border2)}
+.stbl td{padding:13px 12px;border-bottom:1px solid var(--border)}
 .stbl tr:nth-child(even) td{background:rgba(14,24,48,.4)}
 .stbl tr:last-child td{border-bottom:none}
 
 /* ── SECTION LABEL ── */
-.slbl{font-family:var(--head);font-size:.54rem;letter-spacing:.18em;color:var(--text3);margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.slbl{font-family:var(--head);font-size:.65rem;letter-spacing:.16em;color:var(--text3);margin-bottom:12px;display:flex;align-items:center;gap:8px}
 .slbl::after{content:'';flex:1;height:1px;background:var(--border)}
 
 /* ── PROC STEP ── */
-.pstep{display:flex;align-items:center;gap:12px;padding:8px 0;transition:opacity .3s}
-.pdot{width:22px;height:22px;border-radius:50%;border:1.5px solid;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .3s}
+.pstep{display:flex;align-items:center;gap:14px;padding:10px 0;transition:opacity .3s}
+.pdot{width:26px;height:26px;border-radius:50%;border:1.5px solid;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .3s}
 
 /* ── TOAST ── */
-#toast{position:fixed;top:16px;left:50%;transform:translateX(-50%) translateY(-80px);background:var(--bg3);border:1px solid var(--green);color:var(--green);padding:10px 22px;border-radius:6px;font-family:var(--head);font-size:.65rem;letter-spacing:.1em;z-index:9999;transition:transform .3s cubic-bezier(.2,.8,.3,1);pointer-events:none;white-space:nowrap}
+#toast{position:fixed;top:max(16px,env(safe-area-inset-top,16px));left:50%;transform:translateX(-50%) translateY(-100px);background:var(--bg3);border:1px solid var(--green);color:var(--green);padding:13px 26px;border-radius:8px;font-family:var(--head);font-size:.72rem;letter-spacing:.1em;z-index:9999;transition:transform .3s cubic-bezier(.2,.8,.3,1);pointer-events:none;white-space:nowrap;box-shadow:0 4px 24px rgba(0,0,0,.5)}
 #toast.show{transform:translateX(-50%) translateY(0)}
 
 /* ── REPORT STYLES ── */
@@ -131,10 +140,10 @@ input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;bac
 
 /* ── EDITOR ── */
 #ed-canvas{display:block;touch-action:none;cursor:crosshair}
-.ed-toolbar{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:500px;background:rgba(5,8,16,.97);backdrop-filter:blur(16px);border-top:1px solid var(--border2);padding:10px 14px;display:flex;align-items:center;gap:8px;z-index:300}
-.ed-badge{display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:24px;border-radius:12px;background:var(--red-dim);border:1px solid var(--red);color:var(--red);font-family:var(--head);font-size:.58rem;padding:0 6px}
+.ed-toolbar{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:500px;background:rgba(5,8,16,.97);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-top:1px solid var(--border2);padding:10px 14px;padding-bottom:calc(10px + env(safe-area-inset-bottom,0px));display:flex;align-items:center;gap:8px;z-index:300}
+.ed-badge{display:inline-flex;align-items:center;justify-content:center;min-width:28px;height:28px;border-radius:14px;background:var(--red-dim);border:1px solid var(--red);color:var(--red);font-family:var(--head);font-size:.68rem;padding:0 8px}
 .ed-badge.green{background:var(--green-dim);border-color:var(--green);color:var(--green)}
-.ed-hint{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(5,8,16,.88);border:1px solid var(--border2);border-radius:10px;padding:16px 22px;text-align:center;pointer-events:none;transition:opacity .4s;z-index:10}
+.ed-hint{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(5,8,16,.92);border:1px solid var(--border2);border-radius:12px;padding:20px 24px;text-align:center;pointer-events:none;transition:opacity .4s;z-index:10;width:min(88vw,280px)}
 @keyframes edPop{0%{transform:translate(-50%,-50%) scale(.85);opacity:0}60%{transform:translate(-50%,-50%) scale(1.04)}100%{transform:translate(-50%,-50%) scale(1);opacity:1}}
 .ed-hint{animation:edPop .35s ease both}
 
@@ -159,7 +168,52 @@ input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;bac
 <script>
 'use strict';
 // ══════════════════════════════════════════════════════════════════
-//  STORAGE
+//  PWA — CROSS-PLATFORM INSTALL SUPPORT
+// ══════════════════════════════════════════════════════════════════
+(function(){
+  // Build & inject manifest dynamically (works on Chrome/Edge/Firefox/Android/Desktop)
+  const iconSvg=`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' fill='%23050810'/><circle cx='256' cy='256' r='230' stroke='%2300ff88' stroke-width='10' fill='none'/><circle cx='256' cy='256' r='160' stroke='%2300ff88' stroke-width='8' fill='none'/><circle cx='256' cy='256' r='90' stroke='%2300ff88' stroke-width='6' fill='none'/><circle cx='256' cy='256' r='30' stroke='%2300ff88' stroke-width='4' fill='none'/><circle cx='256' cy='256' r='10' fill='%2300ff88'/><line x1='20' y1='256' x2='180' y2='256' stroke='%2300ff88' stroke-width='8'/><line x1='332' y1='256' x2='492' y2='256' stroke='%2300ff88' stroke-width='8'/><line x1='256' y1='20' x2='256' y2='180' stroke='%2300ff88' stroke-width='8'/><line x1='256' y1='332' x2='256' y2='492' stroke='%2300ff88' stroke-width='8'/></svg>`;
+  const iconUrl=`data:image/svg+xml,${iconSvg}`;
+  const manifest={name:'AirScan Pro',short_name:'AirScan',description:'0.177 Air Gun Shot Analysis',start_url:location.href,scope:location.href,display:'standalone',orientation:'portrait',background_color:'#050810',theme_color:'#050810',icons:[{src:iconUrl,sizes:'192x192',type:'image/svg+xml'},{src:iconUrl,sizes:'512x512',type:'image/svg+xml',purpose:'any maskable'}]};
+  const blob=new Blob([JSON.stringify(manifest)],{type:'application/json'});
+  document.getElementById('pwa-manifest').href=URL.createObjectURL(blob);
+})();
+
+// Capture Chrome/Edge/Android install prompt
+let _pwaPrompt=null;
+window.addEventListener('beforeinstallprompt',e=>{
+  e.preventDefault();_pwaPrompt=e;
+  // Show install button if home page is rendered
+  const btn=document.getElementById('pwa-install-btn');
+  if(btn)btn.style.display='flex';
+});
+window.addEventListener('appinstalled',()=>{_pwaPrompt=null;toast('AirScan Pro installed!');});
+
+function installPWA(){
+  if(_pwaPrompt){_pwaPrompt.prompt();_pwaPrompt.userChoice.then(()=>{_pwaPrompt=null;render();});}
+}
+
+function getPlatformInstallTip(){
+  const ua=navigator.userAgent||'';
+  const isIOS=/iPad|iPhone|iPod/.test(ua)&&!window.MSStream;
+  const isAndroid=/Android/.test(ua);
+  const isSafari=/Safari/.test(ua)&&!/Chrome|CriOS|FxiOS|EdgiOS/.test(ua);
+  const isFirefox=/Firefox|FxiOS/.test(ua);
+  const isEdge=/Edg\//.test(ua);
+  const isChrome=/Chrome|CrMOS|CriOS/.test(ua);
+  const isStandalone=window.matchMedia('(display-mode: standalone)').matches||navigator.standalone;
+  if(isStandalone)return{installed:true,text:'✅ Running as installed app — data is fully isolated.'};
+  if(isIOS&&isSafari)return{text:'Safari → tap <strong style="color:var(--text)">Share ↑</strong> → <strong style="color:var(--text)">Add to Home Screen</strong>'};
+  if(isIOS&&isChrome)return{text:'Chrome iOS → tap <strong style="color:var(--text)">⋯</strong> menu → <strong style="color:var(--text)">Add to Home Screen</strong>'};
+  if(isIOS&&isFirefox)return{text:'Firefox iOS → tap <strong style="color:var(--text)">⋯</strong> menu → <strong style="color:var(--text)">Add to Home Screen</strong>'};
+  if(isAndroid&&isChrome)return{prompt:true,text:'Tap <strong style="color:var(--text)">Install App</strong> above, or Chrome menu → <strong style="color:var(--text)">Add to Home Screen</strong>'};
+  if(isAndroid&&isFirefox)return{text:'Firefox menu → <strong style="color:var(--text)">Install</strong>'};
+  if(isAndroid)return{prompt:true,text:'Browser menu → <strong style="color:var(--text)">Add to Home Screen</strong>'};
+  if(isEdge)return{prompt:true,text:'Click the <strong style="color:var(--text)">⊕ install</strong> icon in the address bar, or Edge menu → <strong style="color:var(--text)">Apps → Install</strong>'};
+  if(isChrome)return{prompt:true,text:'Click the <strong style="color:var(--text)">⊕ install</strong> icon in the address bar, or Chrome menu → <strong style="color:var(--text)">Save and share → Install page</strong>'};
+  if(isFirefox)return{text:'Firefox menu → <strong style="color:var(--text)">Install</strong>'};
+  return{text:'Browser menu → <strong style="color:var(--text)">Add to Home Screen</strong> or <strong style="color:var(--text)">Install App</strong>'};
+}
 // ══════════════════════════════════════════════════════════════════
 const DB={
   K_S:'ts_sessions_v3',K_P:'ts_prefs_v2',
@@ -697,7 +751,7 @@ function pgHome(){
   const s=DB.sessions,cnt=s.length;
   const best=cnt?Math.max(...s.filter(x=>x.stats).map(x=>pct(x.stats.totalScore,x.stats.maxScore))):null;
   return`
-<div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:44px 24px 110px">
+<div class="scroll-page" style="min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:44px 24px calc(90px + env(safe-area-inset-bottom,0px))">
   <div class="fade-up" style="margin-bottom:24px">
     <svg width="78" height="78" viewBox="0 0 78 78" fill="none">
       <circle cx="39" cy="39" r="36" stroke="rgba(0,255,136,0.12)" stroke-width="1.5"/>
@@ -732,6 +786,31 @@ function pgHome(){
     ${[['ISSF','10m Standard'],['0.177','Optimised'],['TRACK','Local Storage']].map(([t,d])=>`<div class="card" style="padding:12px 8px;text-align:center"><div style="font-family:var(--head);font-size:.5rem;letter-spacing:.12em;color:var(--green);margin-bottom:5px">${t}</div><div style="color:var(--text3);font-size:.65rem;line-height:1.3">${d}</div></div>`).join('')}
   </div>`}
   <p class="fade-up s6" style="font-family:var(--mono);font-size:.58rem;letter-spacing:.14em;color:var(--text4);margin-top:32px;text-align:center">Free For All by Dilan</p>
+
+  <!-- Data Safety Panel -->
+  <div class="fade-up s6" style="width:100%;max-width:320px;margin-top:18px;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r);overflow:hidden">
+    <div style="padding:10px 14px 8px;display:flex;align-items:center;gap:7px;border-bottom:1px solid var(--border)">
+      <svg width="13" height="13" fill="none" stroke="var(--green)" stroke-width="2"><path d="M6.5 1L1 3.5v3.5c0 3 2.5 5.5 5.5 6 3-0.5 5.5-3 5.5-6V3.5L6.5 1z"/></svg>
+      <span style="font-family:var(--head);font-size:.52rem;letter-spacing:.16em;color:var(--green)">DATA SAFETY</span>
+    </div>
+    <div style="padding:10px 14px;display:flex;flex-direction:column;gap:8px">
+      ${(()=>{const t=getPlatformInstallTip();return t.prompt&&_pwaPrompt?`<button id="pwa-install-btn" class="btn btn-primary" style="width:100%;font-size:.65rem;padding:11px" onclick="installPWA()">⊕ &nbsp;INSTALL APP — Isolated Storage</button>`:`<button id="pwa-install-btn" class="btn btn-primary" style="width:100%;font-size:.65rem;padding:11px;display:none" onclick="installPWA()">⊕ &nbsp;INSTALL APP — Isolated Storage</button>`;})()}
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-ghost" style="flex:1;font-size:.58rem;padding:9px 10px" onclick="exportData()">
+          <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0"><path d="M7 2v8M4 7l3 3 3-3"/><path d="M2 11v1a1 1 0 001 1h8a1 1 0 001-1v-1"/></svg>
+          &nbsp;EXPORT BACKUP
+        </button>
+        <button class="btn btn-ghost" style="flex:1;font-size:.58rem;padding:9px 10px" onclick="importData()">
+          <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0"><path d="M7 10V2M4 5l3-3 3 3"/><path d="M2 11v1a1 1 0 001 1h8a1 1 0 001-1v-1"/></svg>
+          &nbsp;RESTORE
+        </button>
+      </div>
+      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:9px 11px;display:flex;align-items:flex-start;gap:8px">
+        <svg width="14" height="14" fill="none" stroke="var(--amber)" stroke-width="1.8" style="flex-shrink:0;margin-top:1px"><circle cx="7" cy="7" r="6"/><line x1="7" y1="4" x2="7" y2="7.5"/><circle cx="7" cy="10" r=".6" fill="var(--amber)" stroke="none"/></svg>
+        <span style="font-family:var(--body);font-size:.72rem;color:var(--text3);line-height:1.5"><strong style="color:var(--amber)">Install for isolated storage:</strong> ${getPlatformInstallTip().text}</span>
+      </div>
+    </div>
+  </div>
 </div>
 <input id="fi" type="file" accept="image/*" style="display:none" onchange="onFile(event)"/>`;
 }
@@ -743,7 +822,7 @@ function pgConfigure(){
   const c=App.cfg;
   const sel=(k,v)=>c[k]===v?'on':'';
   return`
-<div style="min-height:100vh;padding-bottom:100px">
+<div class="scroll-page" style="min-height:100vh;padding-bottom:calc(90px + env(safe-area-inset-bottom,0px))">
   <div class="ph">
     <button class="btn-icon btn" onclick="App.setState({view:'home'})">${I.back}</button>
     <span class="ph-title">CONFIGURE ANALYSIS</span>
@@ -827,7 +906,7 @@ function pgResults(r=App.results){
   const p=stats?pct(stats.totalScore,stats.maxScore):0;
   const sc=scoreColor(p);
   return`
-<div style="padding-bottom:90px">
+<div class="scroll-page" style="padding-bottom:calc(90px + env(safe-area-inset-bottom,0px))">
   <div class="ph">
     <button class="btn-icon btn" onclick="App.setState({view:App.viewSession?'history':'home',viewSession:null,results:App.viewSession?App.results:null})">${I.back}</button>
     <span class="ph-title">RESULTS</span>
@@ -940,20 +1019,28 @@ const Ed={
     return-1;
   },
   fit(cw,ch){
-    const sc=Math.min(cw/this.imgW,ch/this.imgH)*0.96;
-    this.scale=sc;this.tx=(cw-this.imgW*sc)/2;this.ty=(ch-this.imgH*sc)/2;
+    const dpr=this.dpr||1;
+    const cssW=cw/dpr, cssH=ch/dpr;
+    const sc=Math.min(cssW/this.imgW,cssH/this.imgH)*0.96;
+    this.scale=sc;this.tx=(cssW-this.imgW*sc)/2;this.ty=(cssH-this.imgH*sc)/2;
   },
   clamp(cw,ch){
+    const dpr=this.dpr||1;
+    const cssW=cw/dpr, cssH=ch/dpr;
     const m=60,iw=this.imgW*this.scale,ih=this.imgH*this.scale;
-    this.tx=Math.min(cw-m,Math.max(-(iw-m),this.tx));
-    this.ty=Math.min(ch-m,Math.max(-(ih-m),this.ty));
+    this.tx=Math.min(cssW-m,Math.max(-(iw-m),this.tx));
+    this.ty=Math.min(cssH-m,Math.max(-(ih-m),this.ty));
   },
   redraw(){
     const canvas=document.getElementById('ed-canvas');if(!canvas||!this.img)return;
     const ctx=canvas.getContext('2d');
-    const{width:cw,height:ch}=canvas;
-    ctx.clearRect(0,0,cw,ch);
-    ctx.fillStyle='#050810';ctx.fillRect(0,0,cw,ch);
+    const dpr=this.dpr||1;
+    const cw=canvas.width,ch=canvas.height;
+    const cssW=cw/dpr, cssH=ch/dpr;
+    // reset transform then apply DPR scaling so all drawing is in CSS pixels
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    ctx.clearRect(0,0,cssW,cssH);
+    ctx.fillStyle='#050810';ctx.fillRect(0,0,cssW,cssH);
     // image
     ctx.save();ctx.translate(this.tx,this.ty);ctx.scale(this.scale,this.scale);
     ctx.drawImage(this.img,0,0);ctx.restore();
@@ -1014,10 +1101,11 @@ const Ed={
 function setupEditorEvents(){
   const canvas=document.getElementById('ed-canvas');if(!canvas)return;
   const rect=()=>canvas.getBoundingClientRect();
-  const pos=(e)=>{const r=rect();const sx=canvas.width/r.width,sy=canvas.height/r.height;return[(e.clientX-r.left)*sx,(e.clientY-r.top)*sy];};
-  const tpos=(t,r)=>{const sx=canvas.width/r.width,sy=canvas.height/r.height;return[(t.clientX-r.left)*sx,(t.clientY-r.top)*sy];};
+  // CSS pixel coords — consistent with redraw's setTransform(dpr,...) drawing space
+  const pos=(e)=>{const r=rect();return[e.clientX-r.left,e.clientY-r.top];};
+  const tpos=(t,r)=>[t.clientX-r.left,t.clientY-r.top];
   const pdist=(ts)=>Math.hypot(ts[0].clientX-ts[1].clientX,ts[0].clientY-ts[1].clientY);
-  const pmid=(ts,r)=>{const sx=canvas.width/r.width,sy=canvas.height/r.height;return[((ts[0].clientX+ts[1].clientX)/2-r.left)*sx,((ts[0].clientY+ts[1].clientY)/2-r.top)*sy];};
+  const pmid=(ts,r)=>[(ts[0].clientX+ts[1].clientX)/2-r.left,(ts[0].clientY+ts[1].clientY)/2-r.top];
 
   // ── MOUSE ──
   canvas.addEventListener('mousedown',e=>{
@@ -1150,43 +1238,46 @@ function setupEditorEvents(){
 //  PAGE: EDITOR
 // ══════════════════════════════════════════════════════════════════
 function pgEditor(){
-  // Canvas height = viewport minus header(56px) minus toolbar(66px)
-  const cvH=Math.max(300,(window.innerHeight||600)-56-66);
-  const cvW=Math.min(500,window.innerWidth||400);
+  const dpr=window.devicePixelRatio||1;
+  Ed.dpr=dpr;
+  // measure actual safe-area-aware toolbar height
+  const navH=Math.round(56+20+(window.screen.height>812?34:0)); // header + toolbar + possible home indicator
+  const cvH=Math.max(320,window.innerHeight-navH);
+  const cvW=Math.min(500,window.innerWidth);
   return`
-<div style="display:flex;flex-direction:column;height:100vh;overflow:hidden">
+<div style="display:flex;flex-direction:column;height:100vh;height:-webkit-fill-available;overflow:hidden">
   <!-- Header -->
   <div class="ph" style="flex-shrink:0">
     <button class="btn-icon btn" onclick="App.setState({view:App.results?.pending?'home':'results'})">${I.back}</button>
     <span class="ph-title">MANUAL EDITOR</span>
-    <div style="display:flex;align-items:center;gap:8px">
-      <span id="ed-zoom" style="font-family:var(--mono);font-size:.65rem;color:var(--text3)">100%</span>
-      <div class="ed-badge green" id="ed-count" style="min-width:28px">${Ed.shots.length}</div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <span id="ed-zoom" style="font-family:var(--mono);font-size:.75rem;color:var(--text3)">100%</span>
+      <div class="ed-badge green" id="ed-count" style="min-width:32px">${Ed.shots.length}</div>
     </div>
   </div>
   <!-- Canvas wrap -->
   <div style="flex:1;position:relative;overflow:hidden;background:#050810">
-    <canvas id="ed-canvas" width="${cvW}" height="${cvH}" style="width:100%;height:${cvH}px"></canvas>
+    <canvas id="ed-canvas" width="${Math.round(cvW*dpr)}" height="${Math.round(cvH*dpr)}" style="width:${cvW}px;height:${cvH}px;display:block"></canvas>
     <!-- Hint overlay -->
-    <div id="ed-hint" class="ed-hint" style="max-width:240px">
-      <div style="font-family:var(--head);font-size:.62rem;letter-spacing:.12em;color:var(--green);margin-bottom:8px">HOW TO EDIT</div>
-      <div style="color:var(--text2);font-size:.82rem;line-height:1.6;text-align:left">
-        <div style="margin-bottom:4px">📍 <strong>Tap empty area</strong> — add shot</div>
-        <div style="margin-bottom:4px">👆 <strong>Tap a shot</strong> — select it</div>
-        <div style="margin-bottom:4px">✋ <strong>Drag a shot</strong> — reposition</div>
-        <div style="margin-bottom:4px">🤏 <strong>Pinch</strong> — zoom in/out</div>
+    <div id="ed-hint" class="ed-hint">
+      <div style="font-family:var(--head);font-size:.72rem;letter-spacing:.12em;color:var(--green);margin-bottom:10px">HOW TO EDIT</div>
+      <div style="color:var(--text2);font-size:.92rem;line-height:1.7;text-align:left">
+        <div style="margin-bottom:6px">📍 <strong>Tap empty area</strong> — add shot</div>
+        <div style="margin-bottom:6px">👆 <strong>Tap a shot</strong> — select it</div>
+        <div style="margin-bottom:6px">✋ <strong>Drag a shot</strong> — move it</div>
+        <div style="margin-bottom:6px">🤏 <strong>Pinch</strong> — zoom in/out</div>
         <div>🖱️ <strong>Scroll wheel</strong> — zoom</div>
       </div>
-      <div style="margin-top:10px;color:var(--text3);font-size:.72rem">Tap anywhere to dismiss</div>
+      <div style="margin-top:12px;color:var(--text3);font-size:.8rem">Tap anywhere to dismiss</div>
     </div>
   </div>
   <!-- Toolbar -->
   <div class="ed-toolbar" style="flex-shrink:0">
-    <button class="btn btn-ghost" style="padding:10px 13px;font-size:.6rem" onclick="Ed.undo()">${I.undo} UNDO</button>
-    <button id="ed-del" class="btn btn-danger" style="padding:10px 13px;font-size:.6rem;opacity:.3;pointer-events:none" onclick="Ed.deleteSelected()">${I.trash} DELETE</button>
+    <button class="btn btn-ghost" style="padding:12px 16px;font-size:.72rem" onclick="Ed.undo()">${I.undo} UNDO</button>
+    <button id="ed-del" class="btn btn-danger" style="padding:12px 16px;font-size:.72rem;opacity:.3;pointer-events:none" onclick="Ed.deleteSelected()">${I.trash} DELETE</button>
     <div style="flex:1"></div>
-    <button class="btn btn-ghost" style="padding:10px 13px;font-size:.6rem" onclick="Ed.fit(${cvW},${cvH});Ed.redraw()">FIT</button>
-    <button class="btn btn-primary" style="padding:10px 16px;font-size:.65rem" onclick="applyEdits()">
+    <button class="btn btn-ghost" style="padding:12px 16px;font-size:.72rem" onclick="Ed.fit(${Math.round(cvW*dpr)},${Math.round(cvH*dpr)});Ed.redraw()">FIT</button>
+    <button class="btn btn-primary" style="padding:12px 18px;font-size:.75rem" onclick="applyEdits()">
       ${I.ok}&nbsp; APPLY
     </button>
   </div>
@@ -1199,7 +1290,7 @@ function pgEditor(){
 function pgHistory(){
   const s=DB.sessions;
   return`
-<div style="padding-bottom:90px">
+<div class="scroll-page" style="padding-bottom:calc(90px + env(safe-area-inset-bottom,0px))">
   <div class="ph">
     <span class="ph-title">HISTORY</span>
     ${s.length?`<button class="btn btn-danger" onclick="confirmClear()" style="font-size:.58rem">CLEAR ALL</button>`:''}
@@ -1234,7 +1325,7 @@ function pgHistory(){
 function pgProgress(){
   const ss=DB.sessions.filter(s=>s.stats&&s.scored?.length>0);
   if(ss.length<2)return`
-<div style="padding-bottom:90px">
+<div class="scroll-page" style="padding-bottom:calc(90px + env(safe-area-inset-bottom,0px))">
   <div class="ph"><span class="ph-title">PROGRESS</span></div>
   <div style="padding:80px 24px;text-align:center;color:var(--text3)">
     <p style="font-size:.95rem">Analyze at least 2 sessions to view progress charts.</p>
@@ -1249,7 +1340,7 @@ function pgProgress(){
   const trendUp=trend>overallAvg;
   const heatUrl=buildHeatmap(ss,220);
   return`
-<div style="padding-bottom:90px">
+<div class="scroll-page" style="padding-bottom:calc(90px + env(safe-area-inset-bottom,0px))">
   <div class="ph"><span class="ph-title">PROGRESS CHARTS</span><span class="ph-sub">${ss.length} SESSIONS</span></div>
 
   <!-- KPI row -->
@@ -1358,7 +1449,7 @@ function buildPBRows(ss){
 function pgReport(){
   const ss=DB.sessions.filter(s=>s.stats&&s.scored?.length>0);
   if(ss.length<3)return`
-<div style="padding-bottom:90px">
+<div class="scroll-page" style="padding-bottom:calc(90px + env(safe-area-inset-bottom,0px))">
   <div class="ph"><span class="ph-title">PROGRESS REPORT</span></div>
   <div style="padding:80px 24px;text-align:center;color:var(--text3)">
     <p style="font-size:.95rem">Analyze at least 3 sessions to generate a progress report.</p>
@@ -1384,7 +1475,7 @@ function pgReport(){
   const cfg=ss[0]?.cfg||{};
 
   return`
-<div style="padding-bottom:90px">
+<div class="scroll-page" style="padding-bottom:calc(90px + env(safe-area-inset-bottom,0px))">
   <div class="ph">
     <span class="ph-title">PROGRESS REPORT</span>
     <button class="btn btn-ghost no-print" style="font-size:.6rem;padding:7px 12px" onclick="printReport()">${I.print} PRINT</button>
@@ -1771,6 +1862,36 @@ function render(){
 function navTo(id){App.setState({view:id,viewSession:null});}
 function onFile(e){const f=e.target.files[0];if(!f)return;App.imgUrl=URL.createObjectURL(f);App.setState({view:'configure'});}
 function runDemo(){const url=genDemo(8);App.imgUrl=url;runAnalysis(url);}
+
+function exportData(){
+  const payload={version:1,exported:new Date().toISOString(),sessions:DB.sessions,prefs:DB.prefs};
+  const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download=`airscan_backup_${new Date().toISOString().slice(0,10)}.json`;a.click();
+  toast('Backup saved! Keep this file somewhere safe.');
+}
+function importData(){
+  const inp=document.createElement('input');inp.type='file';inp.accept='.json,application/json';
+  inp.onchange=e=>{
+    const f=e.target.files[0];if(!f)return;
+    const reader=new FileReader();
+    reader.onload=ev=>{
+      try{
+        const d=JSON.parse(ev.target.result);
+        if(!d.sessions||!Array.isArray(d.sessions))throw new Error('Invalid backup file');
+        const existing=DB.sessions;
+        const existingIds=new Set(existing.map(s=>s.id));
+        const merged=[...existing,...d.sessions.filter(s=>!existingIds.has(s.id))];
+        DB.sessions=merged;
+        if(d.prefs)DB.prefs=d.prefs;
+        toast(`Restored ${d.sessions.length} sessions successfully!`);
+        render();
+      }catch{toast('Invalid backup file — could not restore');}
+    };
+    reader.readAsText(f);
+  };
+  inp.click();
+}
 
 async function startCam(){
   try{
