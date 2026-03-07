@@ -1629,18 +1629,18 @@ function buildRecommendations(ss,overallAvg,avgSpread,avgRadius,improving){
 // ══════════════════════════════════════════════════════════════════
 function pgCamera(){
   return`
-<div style="display:flex;flex-direction:column;height:100dvh;min-height:-webkit-fill-available;background:#000;overflow:hidden">
-  <!-- Viewfinder fills available space -->
+<div style="position:fixed;inset:0;background:#000;display:flex;flex-direction:column;z-index:500">
+  <!-- Viewfinder fills all available space -->
   <div style="flex:1;position:relative;overflow:hidden;min-height:0">
     <video id="camvid" autoplay playsinline muted style="width:100%;height:100%;object-fit:cover;display:block"></video>
-    <!-- Top bar overlay -->
-    <div style="position:absolute;top:0;left:0;right:0;padding:14px 16px;display:flex;align-items:center;gap:12px;background:linear-gradient(rgba(0,0,0,.65),transparent);z-index:10">
-      <button class="btn-icon btn" onclick="stopCam()" style="background:rgba(0,0,0,.5);border-color:rgba(255,255,255,.2);color:#fff">${I.back}</button>
+    <!-- Top bar -->
+    <div style="position:absolute;top:0;left:0;right:0;padding:14px 16px;display:flex;align-items:center;gap:12px;background:linear-gradient(rgba(0,0,0,.7),transparent);z-index:10">
+      <button class="btn-icon btn" onclick="stopCam()" style="background:rgba(0,0,0,.5);border-color:rgba(255,255,255,.3);color:#fff">${I.back}</button>
       <span style="font-family:var(--head);font-size:.72rem;letter-spacing:.2em;color:#fff">CAMERA</span>
     </div>
-    <!-- Crosshair guide -->
+    <!-- Crosshair -->
     <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none">
-      <svg width="220" height="220" viewBox="0 0 240 240" fill="none" opacity=".55">
+      <svg width="210" height="210" viewBox="0 0 240 240" fill="none" opacity=".55">
         <circle cx="120" cy="120" r="112" stroke="var(--green)" stroke-width="1" stroke-dasharray="8 5"/>
         <line x1="12" y1="120" x2="80" y2="120" stroke="var(--green)" stroke-width="1.5"/>
         <line x1="160" y1="120" x2="228" y2="120" stroke="var(--green)" stroke-width="1.5"/>
@@ -1654,17 +1654,18 @@ function pgCamera(){
       </svg>
     </div>
   </div>
-  <!-- Shutter bar — always visible, never scrolls off -->
-  <div style="flex-shrink:0;padding:20px 0 calc(20px + env(safe-area-inset-bottom));background:rgba(0,0,0,.88);display:flex;align-items:center;justify-content:center;gap:48px">
-    <button onclick="stopCam()" style="width:46px;height:46px;border-radius:50%;background:rgba(255,255,255,.12);border:1.5px solid rgba(255,255,255,.3);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center">
-      <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="15 18 9 12 15 6"/></svg>
+  <!-- Shutter bar — fixed height, always visible above browser chrome -->
+  <div style="flex-shrink:0;height:130px;background:rgba(0,0,0,.92);display:flex;align-items:center;justify-content:center;gap:52px;border-top:1px solid rgba(255,255,255,.08)">
+    <button onclick="stopCam()" style="width:48px;height:48px;border-radius:50%;background:rgba(255,255,255,.12);border:1.5px solid rgba(255,255,255,.35);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center">
+      <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="15 18 9 12 15 6"/></svg>
     </button>
-    <button onclick="capturePhoto()" style="width:74px;height:74px;border-radius:50%;background:transparent;border:4px solid rgba(255,255,255,.92);cursor:pointer;display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent;transition:transform .1s" onpointerdown="this.style.transform='scale(.93)'" onpointerup="this.style.transform=''">
-      <div style="width:60px;height:60px;border-radius:50%;background:#fff"></div>
+    <!-- Shutter button -->
+    <button onclick="capturePhoto()" style="width:80px;height:80px;border-radius:50%;background:transparent;border:5px solid #fff;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:transform .1s;-webkit-tap-highlight-color:transparent" onpointerdown="this.style.transform='scale(.9)'" onpointerup="this.style.transform='scale(1)'">
+      <div style="width:64px;height:64px;border-radius:50%;background:#fff"></div>
     </button>
-    <div style="width:46px;height:46px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px">
-      <div style="font-family:var(--head);font-size:.38rem;letter-spacing:.1em;color:rgba(255,255,255,.4)">HOLD</div>
-      <div style="font-family:var(--head);font-size:.38rem;letter-spacing:.1em;color:rgba(255,255,255,.4)">STEADY</div>
+    <div style="width:48px;height:48px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px">
+      <div style="font-family:var(--head);font-size:.4rem;letter-spacing:.1em;color:rgba(255,255,255,.35)">HOLD</div>
+      <div style="font-family:var(--head);font-size:.4rem;letter-spacing:.1em;color:rgba(255,255,255,.35)">STEADY</div>
     </div>
   </div>
 </div>`;
