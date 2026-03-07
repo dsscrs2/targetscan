@@ -4,7 +4,7 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
 <meta name="theme-color" content="#050810"/>
-<title>TargetScan Pro — Precision Shot Analysis</title>
+<title>AirScan Pro — 0.177 Air Gun Shot Analysis</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Rajdhani:wght@300;400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet"/>
 <style>
@@ -73,11 +73,14 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;heigh
 input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;background:var(--green);cursor:pointer;border:2px solid var(--bg)}
 
 /* ── NAV ── */
-.bottom-nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:500px;background:rgba(5,8,16,.96);backdrop-filter:blur(16px);border-top:1px solid var(--border2);display:flex;z-index:300}
-.nav-btn{flex:1;padding:10px 4px 13px;background:none;border:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;transition:color .2s;font-family:var(--head);font-size:.47rem;letter-spacing:.08em}
-.nav-btn.active{color:var(--green)}.nav-btn:not(.active){color:var(--text4)}
-.nav-btn.active svg{filter:drop-shadow(0 0 4px rgba(0,255,136,.5))}
-.nav-active-bar{height:2px;background:var(--green);border-radius:1px;width:24px;margin-bottom:-4px}
+.bottom-nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:500px;background:rgba(8,12,24,.98);backdrop-filter:blur(20px);border-top:1px solid rgba(0,212,255,0.18);display:flex;z-index:300;padding-bottom:env(safe-area-inset-bottom)}
+.nav-btn{flex:1;padding:11px 4px 14px;background:none;border:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:5px;transition:all .2s;font-family:var(--head);font-size:.52rem;letter-spacing:.06em;font-weight:600}
+.nav-btn.active{color:#fff}
+.nav-btn:not(.active){color:rgba(255,255,255,0.38)}
+.nav-btn:not(.active):not([disabled]):active{color:rgba(255,255,255,0.7)}
+.nav-btn.active svg{filter:drop-shadow(0 0 6px rgba(0,255,136,.7))}
+.nav-btn:not(.active) svg{opacity:0.55}
+.nav-active-bar{height:3px;background:var(--green);border-radius:2px;width:28px;margin-bottom:-5px;box-shadow:0 0 8px rgba(0,255,136,0.6)}
 
 /* ── PAGE HEADER ── */
 .ph{padding:14px 16px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--border);background:rgba(5,8,16,.85);backdrop-filter:blur(10px);position:sticky;top:0;z-index:200}
@@ -360,10 +363,12 @@ function toCanvas(img,max=920){
 // ══════════════════════════════════════════════════════════════════
 function avg(arr){return arr.length?arr.reduce((a,b)=>a+b,0)/arr.length:0}
 function pct(score,max){return max?Math.round(score/max*100):0}
-function scoreColor(p){return p>=95?'#00ff88':p>=80?'#ffb020':p>=60?'#00d4ff':'#ff3a4a'}
-function shotColor(s){return s>=9?'#00ff88':s>=7?'#ffb020':s>=5?'#00d4ff':'#ff3a4a'}
-function rptBadgeClass(p){return p>=90?'rp-green':p>=70?'rp-amber':p>=50?'rp-blue':'rp-red'}
-function grade(p){return p>=97?'S':p>=92?'A+':p>=85?'A':p>=78?'B+':p>=70?'B':p>=60?'C':'D'}
+// Air gun uses tighter thresholds — 90%+ is good, 95%+ is excellent
+function scoreColor(p){return p>=97?'#00ff88':p>=92?'#00d4ff':p>=85?'#ffb020':p>=75?'#ff8c20':'#ff3a4a'}
+function shotColor(s){return s>=10?'#00ff88':s>=9?'#00d4ff':s>=8?'#ffb020':s>=7?'#ff8c20':'#ff3a4a'}
+function rptBadgeClass(p){return p>=95?'rp-green':p>=88?'rp-blue':p>=78?'rp-amber':'rp-red'}
+// Air gun grading — much tighter than firearm shooting
+function grade(p){return p>=99?'X':p>=97?'S':p>=95?'A+':p>=92?'A':p>=88?'B+':p>=83?'B':p>=75?'C':'D'}
 
 function getMonthlyData(sessions){
   const map={};
@@ -579,15 +584,18 @@ function drawMPIChart(canvasEl,sessions){
 // ══════════════════════════════════════════════════════════════════
 async function getSessionTip(stats,shots,type,caliber){
   if(!stats||!shots)return null;
-  const prompt=`You are a precision shooting coach. Give 2 concise coaching sentences based on:
-Shots: ${shots}, Score: ${stats.totalScore}/${stats.maxScore} (${pct(stats.totalScore,stats.maxScore)}%)
-MPI: ${Math.abs(stats.mpiOffX).toFixed(1)}mm ${stats.mpiOffX>0?'right':'left'}, ${Math.abs(stats.mpiOffY).toFixed(1)}mm ${stats.mpiOffY>0?'down':'up'}
-Extreme spread: ${stats.extremeSpreadMm.toFixed(0)}mm, Mean radius: ${stats.meanRadMm.toFixed(0)}mm
-Target: ${type}, Caliber: ${caliber}`;
+  const prompt=`You are an expert ISSF air gun coach specialising in 0.177 (4.5mm) 10m Air Pistol and 10m Air Rifle. Give exactly 2 concise, specific coaching sentences based on this session:
+Shots fired: ${shots}
+Score: ${stats.totalScore}/${stats.maxScore} (${pct(stats.totalScore,stats.maxScore)}%)
+MPI offset: ${Math.abs(stats.mpiOffX).toFixed(1)}mm ${stats.mpiOffX>0?'right':'left'}, ${Math.abs(stats.mpiOffY).toFixed(1)}mm ${stats.mpiOffY>0?'low':'high'}
+Extreme spread (group size): ${stats.extremeSpreadMm.toFixed(1)}mm
+Mean radius: ${stats.meanRadMm.toFixed(1)}mm
+Discipline: ${type}
+Focus on air gun specific technique: hold area, trigger release, follow-through, natural point of aim, mental routine, pellet seating. Reference ISSF benchmarks where relevant (elite: ES <15mm, mean radius <6mm for 10m).`;
   try{
     const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',
       headers:{'Content-Type':'application/json','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:120,messages:[{role:'user',content:prompt}]})});
+      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:130,messages:[{role:'user',content:prompt}]})});
     const d=await r.json();return d.content?.[0]?.text||null;
   }catch{return null;}
 }
@@ -601,24 +609,27 @@ async function getMonthlyReport(sessions,months){
   const recentAvg=avg(recent.map(s=>pct(s.stats?.totalScore||0,s.stats?.maxScore||100)));
   const overallAvg=avg(sessions.map(s=>pct(s.stats?.totalScore||0,s.stats?.maxScore||100)));
   const improving=recentAvg>overallAvg;
-  const prompt=`You are a professional marksmanship coach writing a comprehensive progress report. Analyze this shooter's data:
+  const prompt=`You are a professional ISSF air gun coach writing a comprehensive progress report for a 0.177 (4.5mm) air gun shooter. Analyze this data:
 
 Total sessions: ${sessions.length} over ${months} month(s)
+Discipline: 10m Air Pistol / Air Rifle (0.177 caliber)
 Overall average: ${overallAvg.toFixed(1)}%
 Recent average (last 5): ${recentAvg.toFixed(1)}%
 Trend: ${improving?'IMPROVING':'DECLINING'}
-Best session score: ${pct(best.stats?.totalScore||0,best.stats?.maxScore||100)}%
+Best session: ${pct(best.stats?.totalScore||0,best.stats?.maxScore||100)}%
 
 Monthly breakdown:
 ${summary}
 
-Write a professional 4-paragraph coaching report covering:
-1. Overall performance assessment
-2. Key strengths observed
-3. Primary areas needing improvement
-4. Specific training recommendations for next period
+ISSF elite benchmarks for reference: group ES <15mm, mean radius <6mm, scores >95% consistently.
 
-Be specific, data-driven, and encouraging. Professional tone.`;
+Write a professional 4-paragraph ISSF air gun coaching report:
+1. Overall performance vs ISSF benchmarks
+2. Key strengths in technique or consistency
+3. Specific weaknesses (hold area, trigger, follow-through, mental game)
+4. Concrete drills and training plan for next period
+
+Be specific to air gun discipline, data-driven, and motivating. Professional ISSF coaching tone.`;
   try{
     const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',
       headers:{'Content-Type':'application/json','anthropic-dangerous-direct-browser-access':'true'},
@@ -632,7 +643,7 @@ Be specific, data-driven, and encouraging. Professional tone.`;
 // ══════════════════════════════════════════════════════════════════
 const App={
   view:'home',imgUrl:null,stream:null,
-  cfg:{type:'IPSC',caliber:'9mm',mode:'integer',shots:8},
+  cfg:{type:'AIR_PISTOL_10M',caliber:'.177 (4.5mm)',mode:'decimal',shots:10},
   procStep:0,results:null,tip:null,tipLoading:false,
   viewSession:null,
   reportLoading:false,reportText:null,
@@ -700,9 +711,9 @@ function pgHome(){
       <line x1="39" y1="51" x2="39" y2="75" stroke="var(--green)" stroke-width="2"/>
     </svg>
   </div>
-  <h1 class="fade-up s1" style="font-family:var(--head);font-size:2.1rem;font-weight:900;letter-spacing:.14em;color:#d8eeff;margin-bottom:3px">TARGETSCAN</h1>
-  <p class="fade-up s2" style="font-family:var(--head);font-size:.55rem;letter-spacing:.32em;color:var(--green);margin-bottom:8px">PRO · PRECISION SHOT ANALYSIS</p>
-  <p class="fade-up s3" style="color:var(--text2);font-size:.95rem;max-width:275px;text-align:center;line-height:1.55;margin-bottom:34px">Upload your target — AI detects shots, scores, and builds your progress report over time.</p>
+  <h1 class="fade-up s1" style="font-family:var(--head);font-size:2.1rem;font-weight:900;letter-spacing:.14em;color:#d8eeff;margin-bottom:3px">AIRSCAN</h1>
+  <p class="fade-up s2" style="font-family:var(--head);font-size:.55rem;letter-spacing:.32em;color:var(--green);margin-bottom:8px">PRO · 0.177 AIR GUN ANALYTICS</p>
+  <p class="fade-up s3" style="color:var(--text2);font-size:.95rem;max-width:275px;text-align:center;line-height:1.55;margin-bottom:34px">Photograph your target — manually place each pellet hole, score to ISSF standards and track your progress over time.</p>
 
   <div class="fade-up s3" style="display:flex;flex-direction:column;gap:11px;width:100%;max-width:320px">
     <button class="btn btn-primary" onclick="document.getElementById('fi').click()" style="width:100%;padding:16px;font-size:.73rem">${I.up} UPLOAD TARGET IMAGE</button>
@@ -718,7 +729,7 @@ function pgHome(){
     <div class="sbox"><div class="sbox-lbl">MONTHS</div><div class="sbox-val" style="color:var(--amber)">${getMonthlyData(DB.sessions.filter(x=>x.stats)).length}</div></div>
   </div>`:`
   <div class="fade-up s4" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;width:100%;max-width:320px;margin-top:28px">
-    ${[['DETECT','CV Blob + Contour'],['SCORE','10-Ring Ballistic'],['TRACK','Local Storage']].map(([t,d])=>`<div class="card" style="padding:12px 8px;text-align:center"><div style="font-family:var(--head);font-size:.5rem;letter-spacing:.12em;color:var(--green);margin-bottom:5px">${t}</div><div style="color:var(--text3);font-size:.65rem;line-height:1.3">${d}</div></div>`).join('')}
+    ${[['ISSF','10m Standard'],['0.177','Optimised'],['TRACK','Local Storage']].map(([t,d])=>`<div class="card" style="padding:12px 8px;text-align:center"><div style="font-family:var(--head);font-size:.5rem;letter-spacing:.12em;color:var(--green);margin-bottom:5px">${t}</div><div style="color:var(--text3);font-size:.65rem;line-height:1.3">${d}</div></div>`).join('')}
   </div>`}
 </div>
 <input id="fi" type="file" accept="image/*" style="display:none" onchange="onFile(event)"/>`;
@@ -744,19 +755,19 @@ function pgConfigure(){
     <div class="fade-up">
       <div class="slbl">TARGET TYPE</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
-        ${[['IPSC','IPSC/USPSA'],['NRA_B2','NRA B-2'],['OLYMPIC','Olympic 10m'],['HUNTER','Hunter'],['CUSTOM','Custom']].map(([v,l])=>`<button class="chip ${sel('type',v)}" onclick="App.cfg.type='${v}';App.render()">${l}</button>`).join('')}
+        ${[['AIR_PISTOL_10M','10m Air Pistol'],['AIR_RIFLE_10M','10m Air Rifle'],['AIR_PISTOL_25M','25m Air Pistol'],['FIELD_TARGET','Field Target'],['HUNTER_FT','Hunter FT'],['CUSTOM','Custom']].map(([v,l])=>`<button class="chip ${sel('type',v)}" onclick="App.cfg.type='${v}';App.render()">${l}</button>`).join('')}
       </div>
     </div>
     <div class="fade-up s1">
       <div class="slbl">CALIBER</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
-        ${['9mm','.45 ACP','.40 S&W','5.56 NATO','.308 Win','.22 LR','6.5 CM'].map(v=>`<button class="chip ${sel('caliber',v)}" onclick="App.cfg.caliber='${v}';App.render()">${v}</button>`).join('')}
+        ${['.177 (4.5mm)','.22 (5.5mm)','.25 (6.35mm)','.20 (5mm)'].map(v=>`<button class="chip ${sel('caliber',v)}" onclick="App.cfg.caliber='${v}';App.render()">${v}</button>`).join('')}
       </div>
     </div>
     <div class="fade-up s2">
       <div class="slbl">SCORING</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
-        ${[['integer','Integer 10,9,8…'],['decimal','Decimal 10.9…'],['ipsc','IPSC A/C/D']].map(([v,l])=>`<button class="chip ${sel('mode',v)}" onclick="App.cfg.mode='${v}';App.render()">${l}</button>`).join('')}
+        ${[['decimal','ISSF Decimal 10.9…'],['integer','Integer 10,9,8…'],['field','Field Target 1/2pts']].map(([v,l])=>`<button class="chip ${sel('mode',v)}" onclick="App.cfg.mode='${v}';App.render()">${l}</button>`).join('')}
       </div>
     </div>
     <button class="btn btn-primary fade-up s3" style="width:100%;padding:18px;font-size:.8rem;margin-top:4px" onclick="runAnalysis(App.imgUrl)">
@@ -908,7 +919,7 @@ const Ed={
   isPan:false,isDrag:false,hasMoved:false,
   touches:[],pinchDist0:0,pinchScale0:1,pinchTx0:0,pinchTy0:0,
   history:[],
-  MIN_SCALE:0.5,MAX_SCALE:14,HIT:30,DEFAULT_R:11,
+  MIN_SCALE:0.5,MAX_SCALE:18,HIT:28,DEFAULT_R:7,
   SHOW_HINT:true,
 
   init(imgUrl,shots){
@@ -1414,8 +1425,8 @@ function pgReport(){
             <line x1="39" y1="50" x2="39" y2="75" stroke="#00ff88" stroke-width="2"/>
           </svg>
           <div>
-            <div style="font-family:'Orbitron',sans-serif;font-size:1.4rem;font-weight:900;letter-spacing:.14em;color:#fff">TARGETSCAN PRO</div>
-            <div style="font-family:'Orbitron',sans-serif;font-size:.55rem;letter-spacing:.28em;color:rgba(0,255,136,0.8);margin-top:2px">PRECISION ANALYTICS REPORT</div>
+            <div style="font-family:'Orbitron',sans-serif;font-size:1.4rem;font-weight:900;letter-spacing:.14em;color:#fff">AIRSCAN PRO</div>
+            <div style="font-family:'Orbitron',sans-serif;font-size:.55rem;letter-spacing:.28em;color:rgba(0,255,136,0.8);margin-top:2px">0.177 AIR GUN ANALYTICS REPORT</div>
           </div>
         </div>
         <div style="border-top:1px solid rgba(255,255,255,0.15);padding-top:22px">
@@ -1456,7 +1467,7 @@ function pgReport(){
       </div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">
         <span class="rp-badge ${rptBadgeClass(overallAvg)}" style="font-size:.6rem;font-family:'Orbitron',sans-serif;padding:5px 12px">
-          ${overallAvg>=85?'ADVANCED':overallAvg>=70?'INTERMEDIATE':overallAvg>=55?'DEVELOPING':'BEGINNER'} LEVEL
+          ${overallAvg>=95?'NATIONAL LEVEL':overallAvg>=88?'CLUB COMPETITIVE':overallAvg>=75?'DEVELOPING':overallAvg>=60?'BEGINNER':'NOVICE'}
         </span>
         <span class="rp-badge ${improving?'rp-green':'rp-red'}" style="font-size:.6rem;font-family:'Orbitron',sans-serif;padding:5px 12px">
           ${improving?'IMPROVING TREND':'DECLINING TREND'}
@@ -1519,8 +1530,8 @@ function pgReport(){
         <div>
           <div style="display:flex;flex-direction:column;gap:8px">
             ${[
-              ['Average Extreme Spread',avgSpread.toFixed(1),'mm',avgSpread<40?'rp-green':avgSpread<70?'rp-amber':'rp-red'],
-              ['Average Mean Radius',avgRadius.toFixed(1),'mm',avgRadius<20?'rp-green':avgRadius<35?'rp-amber':'rp-red'],
+              ['Average Extreme Spread',avgSpread.toFixed(1),'mm',avgSpread<15?'rp-green':avgSpread<30?'rp-blue':avgSpread<55?'rp-amber':'rp-red'],
+              ['Average Mean Radius',avgRadius.toFixed(1),'mm',avgRadius<6?'rp-green':avgRadius<12?'rp-blue':avgRadius<22?'rp-amber':'rp-red'],
               ['Best Extreme Spread',Math.min(...spreads).toFixed(1),'mm','rp-green'],
               ['Worst Extreme Spread',Math.max(...spreads).toFixed(1),'mm','rp-red'],
             ].map(([l,v,u,cls])=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 12px;background:#f4f7fb;border-radius:5px;border:1px solid #dde6f0">
@@ -1535,14 +1546,16 @@ function pgReport(){
         </div>
       </div>
       <p style="color:#3a5070;font-size:.88rem;line-height:1.65">
-        ${avgSpread<40
-          ?`Grouping is <strong>excellent</strong> — an average extreme spread of ${avgSpread.toFixed(0)}mm indicates tight, consistent shot placement and strong trigger control.`
-          :avgSpread<70
-          ?`Grouping is <strong>good</strong> with room to improve. The average extreme spread of ${avgSpread.toFixed(0)}mm suggests occasional fliers that could be addressed through follow-through refinement.`
-          :`Grouping consistency needs attention. An average extreme spread of ${avgSpread.toFixed(0)}mm indicates variability in shot placement. Focus on breath control and trigger squeeze consistency.`}
+        ${avgSpread<15
+          ?`Grouping is <strong>elite level</strong> — an average extreme spread of ${avgSpread.toFixed(1)}mm meets ISSF national/international benchmarks. Focus is on mental consistency and match simulation.`
+          :avgSpread<30
+          ?`Grouping is <strong>competitive club level</strong> with an average spread of ${avgSpread.toFixed(1)}mm. Work toward the ISSF elite threshold of 15mm by improving hold area stability and natural point of aim.`
+          :avgSpread<55
+          ?`Grouping needs development — ${avgSpread.toFixed(1)}mm average spread indicates an inconsistent hold. Prioritise stance work, SCATT/dry-fire training, and shot timing within the sighting window.`
+          :`Group consistency requires immediate attention. ${avgSpread.toFixed(1)}mm average spread points to fundamental hold or trigger issues. Reduce target distance and focus exclusively on technique before scoring.`}
         ${avg(ss.slice(0,3).map(s=>s.stats.extremeSpreadMm))<avgSpread
-          ?' Recent sessions show improving grouping compared to earlier sessions.'
-          :' Grouping consistency appears stable across the reporting period.'}
+          ?' Recent sessions show a positive trend in grouping — keep the current training focus.'
+          :' Grouping has been stable across the period.'}
       </p>
     </div>
 
@@ -1580,7 +1593,7 @@ function pgReport(){
 
     <!-- Footer -->
     <div style="padding:20px 28px;background:#f0f4f8;border-top:2px solid #dde6f0;display:flex;justify-content:space-between;align-items:center">
-      <div style="font-family:'Orbitron',sans-serif;font-size:.55rem;letter-spacing:.12em;color:#6a8aaa">TARGETSCAN PRO · PRECISION ANALYTICS</div>
+      <div style="font-family:'Orbitron',sans-serif;font-size:.55rem;letter-spacing:.12em;color:#6a8aaa">AIRSCAN PRO · 0.177 AIR GUN ANALYTICS</div>
       <div style="font-family:'Share Tech Mono',monospace;font-size:.72rem;color:#8aaac8">Generated ${new Date().toLocaleDateString()}</div>
     </div>
   </div>
@@ -1589,20 +1602,55 @@ function pgReport(){
 
 function buildRecommendations(ss,overallAvg,avgSpread,avgRadius,improving){
   const recs=[];
-  if(avgSpread>60)recs.push(['Priority','Grouping Consistency','Your extreme spread of '+avgSpread.toFixed(0)+'mm indicates inconsistent follow-through. Drill dry-fire exercises 10 minutes daily focusing on trigger reset without disturbing aim.','rp-red']);
-  else if(avgSpread>35)recs.push(['Focus','Tighten Groups','Average spread of '+avgSpread.toFixed(0)+'mm is acceptable but could improve. Practice slow-fire groups at reduced distance to build muscle memory.','rp-amber']);
-  else recs.push(['Maintain','Group Discipline','Your '+avgSpread.toFixed(0)+'mm average spread is excellent. Continue current technique and push for consistency under timed or stress conditions.','rp-green']);
-  if(overallAvg<70)recs.push(['Priority','Fundamentals Review','Overall average below 70% suggests fundamental issues. Work with an instructor on stance, grip, and sight alignment basics.','rp-red']);
-  else if(overallAvg<85)recs.push(['Focus','Score Improvement','You are in the developing range. Increase session frequency to 2-3 times per week and focus on eliminating fliers rather than perfect shots.','rp-amber']);
-  else recs.push(['Advanced','Competition Readiness','Your average of '+overallAvg.toFixed(1)+'% indicates competition-ready fundamentals. Consider entering local matches to test performance under pressure.','rp-green']);
-  if(!improving)recs.push(['Action','Reverse Trend','Recent sessions trend below your average. Review the last 3 sessions for pattern changes — check for grip fatigue, change in ammunition, or physical factors.','rp-red']);
-  else recs.push(['Continue','Momentum','Your recent sessions show improvement above baseline. Maintain current training frequency and document any technique changes that correlate with better scores.','rp-green']);
-  recs.push(['Long-term','Data Collection','Continue uploading targets after every session. With '+ss.length+' sessions recorded, monthly trend analysis will become increasingly precise and actionable.','rp-blue']);
+  // Group size — ISSF air gun benchmarks: elite ES <15mm, club <30mm, beginner <60mm
+  if(avgSpread>55)recs.push(['Priority','Hold Area & Stability',
+    'Your average group spread of '+avgSpread.toFixed(0)+'mm suggests a large hold area. Practise standing balance drills for 5 minutes before each session and use a shot trainer or SCATT system to visualise movement during the hold.',
+    'rp-red']);
+  else if(avgSpread>28)recs.push(['Focus','Reduce Group Size',
+    'Average spread of '+avgSpread.toFixed(0)+'mm is developing range (ISSF elite target: <15mm). Add slow 5-shot groups focusing on a perfect natural point of aim before pressing the trigger. Do not rush the shot within the sighting time.',
+    'rp-amber']);
+  else if(avgSpread>14)recs.push(['Good','Refine Consistency',
+    'Group spread of '+avgSpread.toFixed(0)+'mm is solid club level. To push under 15mm (elite threshold), focus on identical trigger press each shot — no anticipation, same finger contact point every time.',
+    'rp-blue']);
+  else recs.push(['Elite','Maintain Group Discipline',
+    'Your '+avgSpread.toFixed(0)+'mm average spread meets ISSF elite benchmarks. Focus on mental routine and shot-to-shot consistency under match pressure conditions.',
+    'rp-green']);
+  // Score level — air gun specific
+  if(overallAvg<75)recs.push(['Priority','Fundamentals Training',
+    'Average below 75% indicates foundational issues. Focus on the five ISSF fundamentals: stance, grip/hold, sight picture, breath control, and trigger release. Work with a qualified air gun coach if possible.',
+    'rp-red']);
+  else if(overallAvg<88)recs.push(['Focus','Score Consistency',
+    'You are in the 75–88% developing range. The biggest gains come from eliminating low 7s and 6s — these are usually caused by trigger anticipation or releasing the shot outside the hold. Dry-fire 15 minutes daily.',
+    'rp-amber']);
+  else if(overallAvg<95)recs.push(['Good','Push for 95%+',
+    'Average of '+overallAvg.toFixed(1)+'% is competitive club level. To break 95%, practise shot selection — only fire when the hold is centred, not on a scheduled timer. Quality over quantity.',
+    'rp-blue']);
+  else recs.push(['Advanced','Competition Preparation',
+    'Averaging '+overallAvg.toFixed(1)+'% places you at national competitive level. Simulate match conditions: use official sighting shots, full 60-shot series, and practise pre-match mental routines.',
+    'rp-green']);
+  // Trend
+  if(!improving)recs.push(['Action','Address Performance Dip',
+    'Recent sessions are below your baseline average. Check equipment first — pellet batch, breech seal condition, scope/sight zero. Then review physical factors: sleep, hydration, and session length.',
+    'rp-red']);
+  else recs.push(['Continue','Build on Momentum',
+    'Your recent form is trending upward. Log what is working — pellet brand, session time, warm-up routine — so you can replicate it consistently.',
+    'rp-green']);
+  // MPI
+  const mpiSessions=ss.filter(s=>s.stats);
+  if(mpiSessions.length>2){
+    const avgMpiX=avg(mpiSessions.map(s=>s.stats.mpiOffX));
+    const avgMpiY=avg(mpiSessions.map(s=>s.stats.mpiOffY));
+    const mpiDist=Math.hypot(avgMpiX,avgMpiY);
+    if(mpiDist>8)recs.push(['Adjust','Sight/Zero Correction',
+      `Your MPI is consistently ${mpiDist.toFixed(0)}mm ${avgMpiX>0?'right':'left'} and ${Math.abs(avgMpiY).toFixed(0)}mm ${avgMpiY>0?'low':'high'} from centre. Adjust your rear sight or scope — this is a zero issue, not a technique issue.`,
+      'rp-amber']);
+  }
+  recs.push(['Long-term','ISSF Data Logging',
+    'With '+ss.length+' sessions recorded, continue logging every range session. After 20+ sessions the MPI drift chart and monthly trend will reveal consistent faults invisible in single sessions.',
+    'rp-blue']);
   return recs.map(([priority,title,text,cls])=>`
     <div style="display:grid;grid-template-columns:80px 1fr;gap:12px;padding:14px;background:#f8fafc;border:1px solid #dde6f0;border-left:4px solid ${cls==='rp-green'?'#22c55e':cls==='rp-red'?'#ef4444':cls==='rp-amber'?'#f59e0b':'#3b82f6'};border-radius:5px">
-      <div>
-        <span class="rp-badge ${cls}" style="display:block;text-align:center;font-size:.52rem">${priority}</span>
-      </div>
+      <div><span class="rp-badge ${cls}" style="display:block;text-align:center;font-size:.52rem">${priority}</span></div>
       <div>
         <div style="font-family:'Orbitron',sans-serif;font-size:.65rem;letter-spacing:.08em;color:#1a3a5c;font-weight:700;margin-bottom:5px">${title}</div>
         <div style="color:#3a5070;font-size:.85rem;line-height:1.55">${text}</div>
@@ -1664,17 +1712,19 @@ function renderNav(){
   const navViews=['home','results','history','progress','report'];
   if(!navViews.includes(App.view))return'';
   const tabs=[
-    {id:'home',icon:I.scan,label:'SCAN'},
-    {id:'results',icon:I.chart,label:'RESULTS'},
-    {id:'history',icon:I.hist,label:'HISTORY'},
-    {id:'progress',icon:I.bar,label:'PROGRESS'},
-    {id:'report',icon:I.report,label:'REPORT'},
+    {id:'home',   icon:`<svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><line x1="2" y1="12" x2="7" y2="12"/><line x1="17" y1="12" x2="22" y2="12"/><line x1="12" y1="2" x2="12" y2="7"/><line x1="12" y1="17" x2="12" y2="22"/><circle cx="12" cy="12" r="2.5" fill="currentColor" stroke="none"/></svg>`, label:'SCAN'},
+    {id:'results',icon:`<svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>`, label:'RESULTS'},
+    {id:'history',icon:`<svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`, label:'HISTORY'},
+    {id:'progress',icon:`<svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>`, label:'STATS'},
+    {id:'report', icon:`<svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>`, label:'REPORT'},
   ];
   return`<nav class="bottom-nav">${tabs.map(t=>{
+    const isActive=App.view===t.id;
     const disabled=(t.id==='results'&&!App.results&&!App.viewSession)||(t.id==='progress'&&DB.sessions.filter(s=>s.stats).length<2)||(t.id==='report'&&DB.sessions.filter(s=>s.stats).length<3);
-    return`<button class="nav-btn${App.view===t.id?' active':''}" ${disabled?'disabled style="opacity:.22"':''} onclick="navTo('${t.id}')">
-      ${App.view===t.id?`<div class="nav-active-bar"></div>`:''}
-      ${t.icon} ${t.label}
+    return`<button class="nav-btn${isActive?' active':''}" ${disabled?'disabled style="opacity:.2;pointer-events:none"':''} onclick="navTo('${t.id}')">
+      ${isActive?`<div class="nav-active-bar"></div>`:`<div style="height:3px"></div>`}
+      ${t.icon}
+      <span>${t.label}</span>
     </button>`;
   }).join('')}</nav>`;
 }
