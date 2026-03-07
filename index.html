@@ -697,11 +697,12 @@ Be specific to air gun discipline, data-driven, and motivating. Professional ISS
 // ══════════════════════════════════════════════════════════════════
 const App={
   view:'home',imgUrl:null,stream:null,
-  cfg:{type:'AIR_PISTOL_10M',caliber:'.177 (4.5mm)',mode:'decimal',shots:10},
+  cfg:Object.assign({type:'AIR_PISTOL_10M',caliber:'.177 (4.5mm)',mode:'decimal',shots:10}, DB.prefs.cfg||{}),
   procStep:0,results:null,tip:null,tipLoading:false,
   viewSession:null,
   reportLoading:false,reportText:null,
   setState(p){Object.assign(this,p);render();},
+  saveCfg(){DB.prefs={...DB.prefs,cfg:{...this.cfg}};},
   get sessions(){return DB.sessions;}
 };
 const STEPS=['Loading image','Preprocessing (CLAHE)','Perspective alignment','Ring detection','Bullet detection','Calculating scores','Rendering overlay','AI coaching'];
@@ -835,19 +836,19 @@ function pgConfigure(){
     <div class="fade-up">
       <div class="slbl">TARGET TYPE</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
-        ${[['AIR_PISTOL_10M','10m Air Pistol'],['AIR_RIFLE_10M','10m Air Rifle'],['AIR_PISTOL_25M','25m Air Pistol'],['FIELD_TARGET','Field Target'],['HUNTER_FT','Hunter FT'],['CUSTOM','Custom']].map(([v,l])=>`<button class="chip ${sel('type',v)}" onclick="App.cfg.type='${v}';App.render()">${l}</button>`).join('')}
+        ${[['AIR_PISTOL_10M','10m Air Pistol'],['AIR_RIFLE_10M','10m Air Rifle'],['AIR_PISTOL_25M','25m Air Pistol'],['FIELD_TARGET','Field Target'],['HUNTER_FT','Hunter FT'],['CUSTOM','Custom']].map(([v,l])=>`<button class="chip ${sel('type',v)}" id="cfg-type-${v}" onclick="setCfg('type','${v}')">${l}</button>`).join('')}
       </div>
     </div>
     <div class="fade-up s1">
       <div class="slbl">CALIBER</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
-        ${['.177 (4.5mm)','.22 (5.5mm)','.25 (6.35mm)','.20 (5mm)'].map(v=>`<button class="chip ${sel('caliber',v)}" onclick="App.cfg.caliber='${v}';App.render()">${v}</button>`).join('')}
+        ${['.177 (4.5mm)','.22 (5.5mm)','.25 (6.35mm)','.20 (5mm)'].map(v=>`<button class="chip ${sel('caliber',v)}" id="cfg-caliber-${v.replace(/[^a-z0-9]/gi,'_')}" onclick="setCfg('caliber','${v}')">${v}</button>`).join('')}
       </div>
     </div>
     <div class="fade-up s2">
       <div class="slbl">SCORING</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
-        ${[['decimal','ISSF Decimal 10.9…'],['integer','Integer 10,9,8…'],['field','Field Target 1/2pts']].map(([v,l])=>`<button class="chip ${sel('mode',v)}" onclick="App.cfg.mode='${v}';App.render()">${l}</button>`).join('')}
+        ${[['decimal','ISSF Decimal 10.9…'],['integer','Integer 10,9,8…'],['field','Field Target 1/2pts']].map(([v,l])=>`<button class="chip ${sel('mode',v)}" id="cfg-mode-${v}" onclick="setCfg('mode','${v}')">${l}</button>`).join('')}
       </div>
     </div>
     <button class="btn btn-primary fade-up s3" style="width:100%;padding:18px;font-size:.8rem;margin-top:4px" onclick="runAnalysis(App.imgUrl)">
@@ -1862,6 +1863,25 @@ function render(){
 function navTo(id){App.setState({view:id,viewSession:null});}
 function onFile(e){const f=e.target.files[0];if(!f)return;App.imgUrl=URL.createObjectURL(f);App.setState({view:'configure'});}
 function runDemo(){const url=genDemo(8);App.imgUrl=url;runAnalysis(url);}
+
+// Instant chip selection — no full re-render, just toggle classes + save
+const CFG_GROUPS={
+  type:['AIR_PISTOL_10M','AIR_RIFLE_10M','AIR_PISTOL_25M','FIELD_TARGET','HUNTER_FT','CUSTOM'],
+  caliber:['.177 (4.5mm)','.22 (5.5mm)','.25 (6.35mm)','.20 (5mm)'],
+  mode:['decimal','integer','field']
+};
+function setCfg(key,val){
+  App.cfg[key]=val;
+  App.saveCfg();
+  // Update chip visuals instantly without re-rendering the page
+  if(key==='type'){
+    CFG_GROUPS.type.forEach(v=>{const el=document.getElementById(`cfg-type-${v}`);if(el)el.className='chip'+(v===val?' on':'');});
+  } else if(key==='caliber'){
+    CFG_GROUPS.caliber.forEach(v=>{const el=document.getElementById(`cfg-caliber-${v.replace(/[^a-z0-9]/gi,'_')}`);if(el)el.className='chip'+(v===val?' on':'');});
+  } else if(key==='mode'){
+    CFG_GROUPS.mode.forEach(v=>{const el=document.getElementById(`cfg-mode-${v}`);if(el)el.className='chip'+(v===val?' on':'');});
+  }
+}
 
 function exportData(){
   const payload={version:1,exported:new Date().toISOString(),sessions:DB.sessions,prefs:DB.prefs};
