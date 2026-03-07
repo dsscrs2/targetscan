@@ -657,9 +657,9 @@ const STEPS=['Loading image','Preprocessing (CLAHE)','Perspective alignment','Ri
 // ══════════════════════════════════════════════════════════════════
 async function runAnalysis(url){
   const img=await loadImg(url);
-  const canvas=toCanvas(img,920);
+  toCanvas(img,920); // kept for side-effects / future use
   Ed.init(url,[]);
-  Ed.img=img;Ed.imgW=canvas.width;Ed.imgH=canvas.height;
+  Ed.img=img;Ed.imgW=img.width;Ed.imgH=img.height;
   // create a blank pending session (saved on apply)
   const id=Date.now();
   const session={id,cfg:{...App.cfg},scored:[],stats:null,overlayUrl:null,imgUrl:url,ts:new Date().toISOString(),tip:null,pending:true};
@@ -731,6 +731,7 @@ function pgHome(){
   <div class="fade-up s4" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;width:100%;max-width:320px;margin-top:28px">
     ${[['ISSF','10m Standard'],['0.177','Optimised'],['TRACK','Local Storage']].map(([t,d])=>`<div class="card" style="padding:12px 8px;text-align:center"><div style="font-family:var(--head);font-size:.5rem;letter-spacing:.12em;color:var(--green);margin-bottom:5px">${t}</div><div style="color:var(--text3);font-size:.65rem;line-height:1.3">${d}</div></div>`).join('')}
   </div>`}
+  <p class="fade-up s6" style="font-family:var(--mono);font-size:.58rem;letter-spacing:.14em;color:var(--text4);margin-top:32px;text-align:center">Free For All by Dilan</p>
 </div>
 <input id="fi" type="file" accept="image/*" style="display:none" onchange="onFile(event)"/>`;
 }
@@ -1013,10 +1014,10 @@ const Ed={
 function setupEditorEvents(){
   const canvas=document.getElementById('ed-canvas');if(!canvas)return;
   const rect=()=>canvas.getBoundingClientRect();
-  const pos=(e)=>{const r=rect();return[e.clientX-r.left,e.clientY-r.top];};
-  const tpos=(t,r)=>[t.clientX-r.left,t.clientY-r.top];
+  const pos=(e)=>{const r=rect();const sx=canvas.width/r.width,sy=canvas.height/r.height;return[(e.clientX-r.left)*sx,(e.clientY-r.top)*sy];};
+  const tpos=(t,r)=>{const sx=canvas.width/r.width,sy=canvas.height/r.height;return[(t.clientX-r.left)*sx,(t.clientY-r.top)*sy];};
   const pdist=(ts)=>Math.hypot(ts[0].clientX-ts[1].clientX,ts[0].clientY-ts[1].clientY);
-  const pmid=(ts,r)=>[(ts[0].clientX+ts[1].clientX)/2-r.left,(ts[0].clientY+ts[1].clientY)/2-r.top];
+  const pmid=(ts,r)=>{const sx=canvas.width/r.width,sy=canvas.height/r.height;return[((ts[0].clientX+ts[1].clientX)/2-r.left)*sx,((ts[0].clientY+ts[1].clientY)/2-r.top)*sy];};
 
   // ── MOUSE ──
   canvas.addEventListener('mousedown',e=>{
@@ -1033,11 +1034,6 @@ function setupEditorEvents(){
     const[sx,sy]=pos(e);
     if(Ed.isDrag&&Ed.dragIdx>=0){
       Ed.hasMoved=true;
-      const[ix,iy]=Ed.s2i(sx-Ed.dragOffX+Ed.i2s(Ed.shots[Ed.dragIdx].cx,Ed.shots[Ed.dragIdx].cy)[0]-Ed.i2s(Ed.shots[Ed.dragIdx].cx,Ed.shots[Ed.dragIdx].cy)[0],sy-Ed.dragOffY+Ed.i2s(Ed.shots[Ed.dragIdx].cx,Ed.shots[Ed.dragIdx].cy)[1]-Ed.i2s(Ed.shots[Ed.dragIdx].cx,Ed.shots[Ed.dragIdx].cy)[1]);
-      // simpler: directly compute image coord from screen
-      const[ix2,iy2]=Ed.s2i(sx-Ed.dragOffX,sy-Ed.dragOffY);
-      Ed.shots[Ed.dragIdx].cx=Math.max(0,Math.min(Ed.imgW,ix2+Ed.shots[Ed.dragIdx].cx- Ed.s2i(sx-Ed.dragOffX,sy-Ed.dragOffY)[0]+Ed.s2i(sx-Ed.dragOffX,sy-Ed.dragOffY)[0]));
-      // simplest approach: offset from canvas pos
       Ed.shots[Ed.dragIdx].cx=Math.max(0,Math.min(Ed.imgW,(sx-Ed.dragOffX-Ed.tx)/Ed.scale));
       Ed.shots[Ed.dragIdx].cy=Math.max(0,Math.min(Ed.imgH,(sy-Ed.dragOffY-Ed.ty)/Ed.scale));
       Ed.redraw();
