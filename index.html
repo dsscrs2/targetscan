@@ -126,6 +126,15 @@ input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;bac
 .rp-badge{display:inline-block;padding:3px 9px;border-radius:3px;font-family:'Orbitron',sans-serif;font-size:.5rem;letter-spacing:.08em;font-weight:700}
 .rp-green{background:#dcfce7;color:#166534}.rp-amber{background:#fef3c7;color:#92400e}.rp-red{background:#fee2e2;color:#991b1b}.rp-blue{background:#dbeafe;color:#1e40af}
 
+/* ── EDITOR ── */
+#ed-canvas{display:block;touch-action:none;cursor:crosshair}
+.ed-toolbar{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:500px;background:rgba(5,8,16,.97);backdrop-filter:blur(16px);border-top:1px solid var(--border2);padding:10px 14px;display:flex;align-items:center;gap:8px;z-index:300}
+.ed-badge{display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:24px;border-radius:12px;background:var(--red-dim);border:1px solid var(--red);color:var(--red);font-family:var(--head);font-size:.58rem;padding:0 6px}
+.ed-badge.green{background:var(--green-dim);border-color:var(--green);color:var(--green)}
+.ed-hint{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(5,8,16,.88);border:1px solid var(--border2);border-radius:10px;padding:16px 22px;text-align:center;pointer-events:none;transition:opacity .4s;z-index:10}
+@keyframes edPop{0%{transform:translate(-50%,-50%) scale(.85);opacity:0}60%{transform:translate(-50%,-50%) scale(1.04)}100%{transform:translate(-50%,-50%) scale(1);opacity:1}}
+.ed-hint{animation:edPop .35s ease both}
+
 /* PRINT */
 @media print{
   body{background:#fff!important}
@@ -674,6 +683,9 @@ const I={
   ok:`<svg width="10" height="10" fill="none"><polyline points="2,5 4,8 9,2" stroke="currentColor" stroke-width="2"/></svg>`,
   print:`<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>`,
   star:`<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`,
+  edit:`<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4l3 3L7 14H4v-3L11 4z"/><line x1="9" y1="6" x2="12" y2="9"/></svg>`,
+  undo:`<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 14 4 14 4 9"/><path d="M20 9a9 9 0 11-9-9 9 9 0 019 9"/></svg>`,
+  plus:`<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="8" y1="2" x2="8" y2="14"/><line x1="2" y1="8" x2="14" y2="8"/></svg>`,
 };
 
 // ══════════════════════════════════════════════════════════════════
@@ -884,10 +896,305 @@ function pgResults(r=App.results){
       </table>
     </div>
   </div>`:''}
-  <!-- Export -->
-  <div class="fade-up s4" style="padding:16px;display:flex;gap:10px">
-    <button class="btn btn-ghost" style="flex:1" onclick="dlImg('${overlayUrl||''}')">${I.dl} Image</button>
-    <button class="btn btn-ghost" style="flex:1" onclick="dlCSV()">${I.dl} CSV</button>
+  <!-- Edit + Export -->
+  <div class="fade-up s4" style="padding:16px;display:flex;flex-direction:column;gap:10px">
+    <button class="btn btn-amber" style="width:100%;padding:14px;font-size:.72rem" onclick="openEditor()">
+      ${I.edit}&nbsp; EDIT SHOTS MANUALLY
+    </button>
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-ghost" style="flex:1" onclick="dlImg('${overlayUrl||''}')">${I.dl} Image</button>
+      <button class="btn btn-ghost" style="flex:1" onclick="dlCSV()">${I.dl} CSV</button>
+    </div>
+  </div>
+</div>`;
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  MANUAL SHOT EDITOR ENGINE
+// ══════════════════════════════════════════════════════════════════
+const Ed={
+  shots:[],imgUrl:null,img:null,imgW:0,imgH:0,
+  scale:1,tx:0,ty:0,
+  selected:-1,
+  dragIdx:-1,dragOffX:0,dragOffY:0,
+  panStartX:0,panStartY:0,panTx0:0,panTy0:0,
+  isPan:false,isDrag:false,hasMoved:false,
+  touches:[],pinchDist0:0,pinchScale0:1,pinchTx0:0,pinchTy0:0,
+  history:[],
+  MIN_SCALE:0.5,MAX_SCALE:14,HIT:30,DEFAULT_R:11,
+  SHOW_HINT:true,
+
+  init(imgUrl,shots){
+    this.imgUrl=imgUrl;
+    this.shots=shots.map(s=>({cx:s.cx,cy:s.cy,radius:s.radius||this.DEFAULT_R}));
+    this.history=[];this.selected=-1;this.SHOW_HINT=true;
+  },
+  push(){this.history.push(this.shots.map(s=>({...s})));if(this.history.length>40)this.history.shift();},
+  undo(){if(!this.history.length){toast('Nothing to undo');return;}this.shots=this.history.pop();this.selected=-1;this.redraw();document.getElementById('ed-count').textContent=this.shots.length;},
+  s2i(sx,sy){return[(sx-this.tx)/this.scale,(sy-this.ty)/this.scale];},
+  i2s(ix,iy){return[ix*this.scale+this.tx,iy*this.scale+this.ty];},
+  hit(sx,sy){
+    for(let i=this.shots.length-1;i>=0;i--){
+      const[scx,scy]=this.i2s(this.shots[i].cx,this.shots[i].cy);
+      if(Math.hypot(sx-scx,sy-scy)<=Math.max(this.HIT,this.shots[i].radius*this.scale*1.6))return i;
+    }
+    return-1;
+  },
+  fit(cw,ch){
+    const sc=Math.min(cw/this.imgW,ch/this.imgH)*0.96;
+    this.scale=sc;this.tx=(cw-this.imgW*sc)/2;this.ty=(ch-this.imgH*sc)/2;
+  },
+  clamp(cw,ch){
+    const m=60,iw=this.imgW*this.scale,ih=this.imgH*this.scale;
+    this.tx=Math.min(cw-m,Math.max(-(iw-m),this.tx));
+    this.ty=Math.min(ch-m,Math.max(-(ih-m),this.ty));
+  },
+  redraw(){
+    const canvas=document.getElementById('ed-canvas');if(!canvas||!this.img)return;
+    const ctx=canvas.getContext('2d');
+    const{width:cw,height:ch}=canvas;
+    ctx.clearRect(0,0,cw,ch);
+    ctx.fillStyle='#050810';ctx.fillRect(0,0,cw,ch);
+    // image
+    ctx.save();ctx.translate(this.tx,this.ty);ctx.scale(this.scale,this.scale);
+    ctx.drawImage(this.img,0,0);ctx.restore();
+    // ring guides
+    const maxR=Math.min(this.imgW,this.imgH)*0.47;
+    const[icx,icy]=[this.imgW/2,this.imgH/2];
+    for(let i=1;i<=10;i++){
+      const r=maxR*i/10;
+      const[scx2,scy2]=this.i2s(icx,icy);
+      ctx.beginPath();ctx.arc(scx2,scy2,r*this.scale,0,Math.PI*2);
+      ctx.strokeStyle=`rgba(0,220,120,${i===10?.5:.18})`;ctx.lineWidth=i===10?1.5:.7;ctx.stroke();
+      // ring labels at current zoom
+      if(this.scale>1.8&&i>1){
+        const fs=Math.max(9,maxR*this.scale*0.028);
+        ctx.font=`bold ${fs}px monospace`;ctx.textAlign='center';ctx.textBaseline='middle';
+        ctx.fillStyle='rgba(0,255,136,0.55)';
+        ctx.fillText(10-i+1,scx2,scy2-r*this.scale+fs*0.9);
+      }
+    }
+    // shots
+    this.shots.forEach((s,i)=>{
+      const[sx,sy]=this.i2s(s.cx,s.cy);
+      const r=Math.max(8,s.radius*this.scale);
+      const sel=i===this.selected;
+      ctx.beginPath();ctx.arc(sx+2,sy+2,r,0,Math.PI*2);ctx.fillStyle='rgba(0,0,0,.3)';ctx.fill();
+      ctx.beginPath();ctx.arc(sx,sy,r,0,Math.PI*2);
+      ctx.fillStyle=sel?'rgba(255,176,32,.88)':'rgba(220,38,52,.82)';ctx.fill();
+      ctx.strokeStyle=sel?'#FFD700':'rgba(255,255,255,.88)';ctx.lineWidth=sel?2.5:1.8;ctx.stroke();
+      if(sel){
+        ctx.beginPath();ctx.arc(sx,sy,r+7,0,Math.PI*2);
+        ctx.strokeStyle='rgba(255,215,0,.45)';ctx.lineWidth=1.5;
+        ctx.setLineDash([5,4]);ctx.stroke();ctx.setLineDash([]);
+      }
+      const fs=Math.max(7,r*.82);
+      ctx.font=`bold ${fs}px monospace`;ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.fillStyle='#fff';ctx.fillText(i+1,sx,sy);
+    });
+    // zoom indicator
+    const zi=document.getElementById('ed-zoom');if(zi)zi.textContent=Math.round(this.scale*100)+'%';
+    // shot count
+    const ci=document.getElementById('ed-count');if(ci)ci.textContent=this.shots.length;
+    // delete button state
+    const db=document.getElementById('ed-del');
+    if(db){db.style.opacity=this.selected>=0?'1':'.3';db.style.pointerEvents=this.selected>=0?'auto':'none';}
+  },
+  deleteSelected(){
+    if(this.selected<0)return;
+    this.push();this.shots.splice(this.selected,1);this.selected=-1;this.redraw();toast('Shot removed');
+  },
+  addShot(sx,sy){
+    const[ix,iy]=this.s2i(sx,sy);
+    if(ix<0||iy<0||ix>this.imgW||iy>this.imgH)return;
+    this.push();this.shots.push({cx:ix,cy:iy,radius:this.DEFAULT_R});
+    this.selected=this.shots.length-1;this.redraw();
+  },
+};
+
+function setupEditorEvents(){
+  const canvas=document.getElementById('ed-canvas');if(!canvas)return;
+  const rect=()=>canvas.getBoundingClientRect();
+  const pos=(e)=>{const r=rect();return[e.clientX-r.left,e.clientY-r.top];};
+  const tpos=(t,r)=>[t.clientX-r.left,t.clientY-r.top];
+  const pdist=(ts)=>Math.hypot(ts[0].clientX-ts[1].clientX,ts[0].clientY-ts[1].clientY);
+  const pmid=(ts,r)=>[(ts[0].clientX+ts[1].clientX)/2-r.left,(ts[0].clientY+ts[1].clientY)/2-r.top];
+
+  // ── MOUSE ──
+  canvas.addEventListener('mousedown',e=>{
+    if(Ed.SHOW_HINT){Ed.SHOW_HINT=false;const h=document.getElementById('ed-hint');if(h)h.style.display='none';}
+    const[sx,sy]=pos(e);
+    const hi=Ed.hit(sx,sy);
+    if(hi>=0){Ed.selected=hi;Ed.dragIdx=hi;Ed.isDrag=true;Ed.hasMoved=false;
+      const s=Ed.shots[hi];const[scx,scy]=Ed.i2s(s.cx,s.cy);
+      Ed.dragOffX=sx-scx;Ed.dragOffY=sy-scy;Ed.redraw();}
+    else{Ed.isPan=true;Ed.selected=-1;Ed.panStartX=sx;Ed.panStartY=sy;Ed.panTx0=Ed.tx;Ed.panTy0=Ed.ty;Ed.hasMoved=false;Ed.redraw();}
+    e.preventDefault();
+  });
+  canvas.addEventListener('mousemove',e=>{
+    const[sx,sy]=pos(e);
+    if(Ed.isDrag&&Ed.dragIdx>=0){
+      Ed.hasMoved=true;
+      const[ix,iy]=Ed.s2i(sx-Ed.dragOffX+Ed.i2s(Ed.shots[Ed.dragIdx].cx,Ed.shots[Ed.dragIdx].cy)[0]-Ed.i2s(Ed.shots[Ed.dragIdx].cx,Ed.shots[Ed.dragIdx].cy)[0],sy-Ed.dragOffY+Ed.i2s(Ed.shots[Ed.dragIdx].cx,Ed.shots[Ed.dragIdx].cy)[1]-Ed.i2s(Ed.shots[Ed.dragIdx].cx,Ed.shots[Ed.dragIdx].cy)[1]);
+      // simpler: directly compute image coord from screen
+      const[ix2,iy2]=Ed.s2i(sx-Ed.dragOffX,sy-Ed.dragOffY);
+      Ed.shots[Ed.dragIdx].cx=Math.max(0,Math.min(Ed.imgW,ix2+Ed.shots[Ed.dragIdx].cx- Ed.s2i(sx-Ed.dragOffX,sy-Ed.dragOffY)[0]+Ed.s2i(sx-Ed.dragOffX,sy-Ed.dragOffY)[0]));
+      // simplest approach: offset from canvas pos
+      Ed.shots[Ed.dragIdx].cx=Math.max(0,Math.min(Ed.imgW,(sx-Ed.dragOffX-Ed.tx)/Ed.scale));
+      Ed.shots[Ed.dragIdx].cy=Math.max(0,Math.min(Ed.imgH,(sy-Ed.dragOffY-Ed.ty)/Ed.scale));
+      Ed.redraw();
+    } else if(Ed.isPan){
+      Ed.hasMoved=true;
+      Ed.tx=Ed.panTx0+(sx-Ed.panStartX);
+      Ed.ty=Ed.panTy0+(sy-Ed.panStartY);
+      Ed.clamp(canvas.width,canvas.height);Ed.redraw();
+    }
+    e.preventDefault();
+  });
+  canvas.addEventListener('mouseup',e=>{
+    const[sx,sy]=pos(e);
+    if(Ed.isDrag){
+      if(!Ed.hasMoved){Ed.selected=Ed.dragIdx;Ed.redraw();}
+      else Ed.push();
+      Ed.isDrag=false;Ed.dragIdx=-1;
+    } else if(Ed.isPan){
+      Ed.isPan=false;
+      if(!Ed.hasMoved){// tap on empty → add shot
+        Ed.addShot(sx,sy);
+      }
+    }
+    e.preventDefault();
+  });
+
+  // ── TOUCH ──
+  canvas.addEventListener('touchstart',e=>{
+    if(Ed.SHOW_HINT){Ed.SHOW_HINT=false;const h=document.getElementById('ed-hint');if(h)h.style.display='none';}
+    e.preventDefault();
+    const r=rect(),ts=[...e.touches];
+    Ed.touches=ts;
+    if(ts.length===1){
+      const[sx,sy]=tpos(ts[0],r);
+      const hi=Ed.hit(sx,sy);
+      if(hi>=0){
+        Ed.selected=hi;Ed.dragIdx=hi;Ed.isDrag=true;Ed.hasMoved=false;
+        Ed.dragOffX=sx-Ed.i2s(Ed.shots[hi].cx,Ed.shots[hi].cy)[0];
+        Ed.dragOffY=sy-Ed.i2s(Ed.shots[hi].cx,Ed.shots[hi].cy)[1];
+        Ed.redraw();
+      } else {
+        Ed.isPan=true;Ed.isDrag=false;Ed.selected=-1;
+        Ed.panStartX=sx;Ed.panStartY=sy;Ed.panTx0=Ed.tx;Ed.panTy0=Ed.ty;Ed.hasMoved=false;
+        Ed.redraw();
+      }
+    } else if(ts.length===2){
+      Ed.isDrag=false;Ed.isPan=false;
+      Ed.pinchDist0=pdist(ts);Ed.pinchScale0=Ed.scale;
+      const[mx,my]=pmid(ts,r);Ed.panStartX=mx;Ed.panStartY=my;
+      Ed.pinchTx0=Ed.tx;Ed.pinchTy0=Ed.ty;
+    }
+  },{passive:false});
+
+  canvas.addEventListener('touchmove',e=>{
+    e.preventDefault();
+    const r=rect(),ts=[...e.touches];
+    if(ts.length===1&&Ed.isDrag&&Ed.dragIdx>=0){
+      Ed.hasMoved=true;
+      const[sx,sy]=tpos(ts[0],r);
+      Ed.shots[Ed.dragIdx].cx=Math.max(0,Math.min(Ed.imgW,(sx-Ed.dragOffX-Ed.tx)/Ed.scale));
+      Ed.shots[Ed.dragIdx].cy=Math.max(0,Math.min(Ed.imgH,(sy-Ed.dragOffY-Ed.ty)/Ed.scale));
+      Ed.redraw();
+    } else if(ts.length===1&&Ed.isPan){
+      Ed.hasMoved=true;
+      const[sx,sy]=tpos(ts[0],r);
+      Ed.tx=Ed.panTx0+(sx-Ed.panStartX);Ed.ty=Ed.panTy0+(sy-Ed.panStartY);
+      Ed.clamp(canvas.width,canvas.height);Ed.redraw();
+    } else if(ts.length===2){
+      const nd=pdist(ts),ns=Math.max(Ed.MIN_SCALE,Math.min(Ed.MAX_SCALE,Ed.pinchScale0*(nd/Ed.pinchDist0)));
+      const[mx,my]=pmid(ts,r);
+      // zoom around pinch midpoint
+      Ed.tx=mx-(mx-Ed.pinchTx0)*(ns/Ed.pinchScale0);
+      Ed.ty=my-(my-Ed.pinchTy0)*(ns/Ed.pinchScale0);
+      // also pan with midpoint movement
+      Ed.tx+=mx-Ed.panStartX;Ed.ty+=my-Ed.panStartY;
+      Ed.scale=ns;Ed.clamp(canvas.width,canvas.height);Ed.redraw();
+    }
+  },{passive:false});
+
+  canvas.addEventListener('touchend',e=>{
+    e.preventDefault();
+    const r=rect();
+    if(Ed.isDrag){
+      if(!Ed.hasMoved){Ed.selected=Ed.dragIdx;Ed.redraw();}
+      else Ed.push();
+      Ed.isDrag=false;Ed.dragIdx=-1;
+    } else if(Ed.isPan&&!Ed.hasMoved){
+      // tap on empty space → add shot
+      if(e.changedTouches.length){
+        const[sx,sy]=tpos(e.changedTouches[0],r);
+        Ed.addShot(sx,sy);
+      }
+      Ed.isPan=false;
+    } else {
+      Ed.isPan=false;Ed.isDrag=false;
+      // reset pinch state
+      if([...e.touches].length===0){Ed.pinchDist0=0;}
+    }
+  },{passive:false});
+
+  // Mouse wheel zoom
+  canvas.addEventListener('wheel',e=>{
+    e.preventDefault();
+    const r=rect();const[sx,sy]=pos(e);
+    const factor=e.deltaY<0?1.12:0.89;
+    const ns=Math.max(Ed.MIN_SCALE,Math.min(Ed.MAX_SCALE,Ed.scale*factor));
+    Ed.tx=sx-(sx-Ed.tx)*(ns/Ed.scale);
+    Ed.ty=sy-(sy-Ed.ty)*(ns/Ed.scale);
+    Ed.scale=ns;Ed.clamp(canvas.width,canvas.height);Ed.redraw();
+  },{passive:false});
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  PAGE: EDITOR
+// ══════════════════════════════════════════════════════════════════
+function pgEditor(){
+  // Canvas height = viewport minus header(56px) minus toolbar(66px)
+  const cvH=Math.max(300,(window.innerHeight||600)-56-66);
+  const cvW=Math.min(500,window.innerWidth||400);
+  return`
+<div style="display:flex;flex-direction:column;height:100vh;overflow:hidden">
+  <!-- Header -->
+  <div class="ph" style="flex-shrink:0">
+    <button class="btn-icon btn" onclick="App.setState({view:'results'})">${I.back}</button>
+    <span class="ph-title">MANUAL EDITOR</span>
+    <div style="display:flex;align-items:center;gap:8px">
+      <span id="ed-zoom" style="font-family:var(--mono);font-size:.65rem;color:var(--text3)">100%</span>
+      <div class="ed-badge green" id="ed-count" style="min-width:28px">${Ed.shots.length}</div>
+    </div>
+  </div>
+  <!-- Canvas wrap -->
+  <div style="flex:1;position:relative;overflow:hidden;background:#050810">
+    <canvas id="ed-canvas" width="${cvW}" height="${cvH}" style="width:100%;height:${cvH}px"></canvas>
+    <!-- Hint overlay -->
+    <div id="ed-hint" class="ed-hint" style="max-width:240px">
+      <div style="font-family:var(--head);font-size:.62rem;letter-spacing:.12em;color:var(--green);margin-bottom:8px">HOW TO EDIT</div>
+      <div style="color:var(--text2);font-size:.82rem;line-height:1.6;text-align:left">
+        <div style="margin-bottom:4px">📍 <strong>Tap empty area</strong> — add shot</div>
+        <div style="margin-bottom:4px">👆 <strong>Tap a shot</strong> — select it</div>
+        <div style="margin-bottom:4px">✋ <strong>Drag a shot</strong> — reposition</div>
+        <div style="margin-bottom:4px">🤏 <strong>Pinch</strong> — zoom in/out</div>
+        <div>🖱️ <strong>Scroll wheel</strong> — zoom</div>
+      </div>
+      <div style="margin-top:10px;color:var(--text3);font-size:.72rem">Tap anywhere to dismiss</div>
+    </div>
+  </div>
+  <!-- Toolbar -->
+  <div class="ed-toolbar" style="flex-shrink:0">
+    <button class="btn btn-ghost" style="padding:10px 13px;font-size:.6rem" onclick="Ed.undo()">${I.undo} UNDO</button>
+    <button id="ed-del" class="btn btn-danger" style="padding:10px 13px;font-size:.6rem;opacity:.3;pointer-events:none" onclick="Ed.deleteSelected()">${I.trash} DELETE</button>
+    <div style="flex:1"></div>
+    <button class="btn btn-ghost" style="padding:10px 13px;font-size:.6rem" onclick="Ed.fit(${cvW},${cvH});Ed.redraw()">FIT</button>
+    <button class="btn btn-primary" style="padding:10px 16px;font-size:.65rem" onclick="applyEdits()">
+      ${I.ok}&nbsp; APPLY
+    </button>
   </div>
 </div>`;
 }
@@ -1385,6 +1692,7 @@ function render(){
   else if(App.view==='history')    html=pgHistory();
   else if(App.view==='progress')   html=pgProgress();
   else if(App.view==='report')     html=pgReport();
+  else if(App.view==='editor')     html=pgEditor();
   root.innerHTML=html+renderNav();
   if(App.view==='camera'){const v=document.getElementById('camvid');if(v&&App.stream)v.srcObject=App.stream;}
   if(App.view==='progress'){
@@ -1395,7 +1703,14 @@ function render(){
       drawMPIChart(document.getElementById('mpi-chart'),ss);
     });
   }
-  // Restore AI report if present
+  if(App.view==='editor'){
+    const canvas=document.getElementById('ed-canvas');
+    if(canvas&&Ed.img){
+      Ed.fit(canvas.width,canvas.height);
+      Ed.redraw();
+      setupEditorEvents();
+    }
+  }
   if(App.view==='report'&&App.reportText){
     const w=document.getElementById('ai-report-wrap');
     const t=document.getElementById('ai-report-text');
@@ -1462,9 +1777,49 @@ async function genAIReport(count){
   }
 }
 
-// ══════════════════════════════════════════════════════════════════
-//  BOOT
-// ══════════════════════════════════════════════════════════════════
+function openEditor(){
+  const r=App.results;if(!r){toast('No session to edit');return;}
+  const imgSrc=r.imgUrl||App.imgUrl;
+  if(!imgSrc){toast('Original image not available');return;}
+  Ed.init(imgSrc,r.scored||[]);
+  const img=new Image();
+  img.onload=()=>{
+    Ed.img=img;Ed.imgW=img.width;Ed.imgH=img.height;
+    App.setState({view:'editor'});
+  };
+  img.onerror=()=>toast('Could not load image for editing');
+  img.src=imgSrc;
+}
+
+async function applyEdits(){
+  if(!Ed.img){App.setState({view:'results'});return;}
+  // rebuild scored shots from edited positions
+  const canvas=document.createElement('canvas');
+  canvas.width=Ed.imgW;canvas.height=Ed.imgH;
+  canvas.getContext('2d').drawImage(Ed.img,0,0);
+  const newScored=scoreShots(Ed.shots,canvas,App.results?.cfg?.mode||'integer');
+  const newStats=calcStats(newScored,canvas);
+  const newOverlay=drawOverlay(canvas,newScored,newStats);
+  // update results object
+  const updated={...App.results,scored:newScored,stats:newStats,overlayUrl:newOverlay};
+  App.results=updated;App.tip=null;App.tipLoading=false;
+  // update in DB
+  const sessions=DB.sessions;
+  const idx=sessions.findIndex(s=>s.id===updated.id);
+  if(idx>=0){sessions[idx]={...sessions[idx],...updated};DB.sessions=sessions;}
+  toast('Shots updated — scores recalculated!');
+  App.setState({view:'results',viewSession:null});
+  // Re-fetch AI tip with new data
+  if(newStats&&newScored.length>0){
+    App.tipLoading=true;App.render();
+    getSessionTip(newStats,newScored.length,App.results.cfg?.type||'IPSC',App.results.cfg?.caliber||'9mm').then(t=>{
+      if(t){App.tip=t;DB.updateTip(App.results.id,t);}
+      App.setState({tipLoading:false});
+    });
+  }
+}
+
+
 render();
 </script>
 </body>
