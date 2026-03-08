@@ -140,7 +140,6 @@ input[type=range]::-moz-range-thumb{width:26px;height:26px;border-radius:50%;bac
 
 /* ── EDITOR ── */
 #ed-canvas{display:block;touch-action:none;cursor:crosshair}
-.ed-toolbar{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:500px;background:rgba(5,8,16,.97);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-top:1px solid var(--border2);padding:10px 14px;padding-bottom:calc(10px + env(safe-area-inset-bottom,0px));display:flex;align-items:center;gap:8px;z-index:300}
 .ed-badge{display:inline-flex;align-items:center;justify-content:center;min-width:28px;height:28px;border-radius:14px;background:var(--red-dim);border:1px solid var(--red);color:var(--red);font-family:var(--head);font-size:.68rem;padding:0 8px}
 .ed-badge.green{background:var(--green-dim);border-color:var(--green);color:var(--green)}
 .ed-hint{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(5,8,16,.92);border:1px solid var(--border2);border-radius:12px;padding:20px 24px;text-align:center;pointer-events:none;transition:opacity .4s;z-index:10;width:min(88vw,280px)}
@@ -1186,7 +1185,8 @@ const Ed={
   zoomBy(factor){
     const canvas=document.getElementById('ed-canvas');if(!canvas)return;
     const dpr=this.dpr||1;
-    const cx=(canvas.width/dpr)/2, cy=(canvas.height/dpr)/2;
+    const cssW=canvas.width/dpr, cssH=canvas.height/dpr;
+    const cx=cssW/2, cy=cssH/2;
     const ns=Math.max(this.MIN_SCALE,Math.min(this.MAX_SCALE,this.scale*factor));
     this.tx=cx-(cx-this.tx)*(ns/this.scale);
     this.ty=cy-(cy-this.ty)*(ns/this.scale);
@@ -1195,7 +1195,6 @@ const Ed={
   fitToView(){
     const canvas=document.getElementById('ed-canvas');if(!canvas)return;
     this.fit(canvas.width,canvas.height);this.redraw();
-    const btn=document.getElementById('ed-zoom-btn');if(btn)btn.textContent='FIT';
   },
 };
 
@@ -1375,16 +1374,10 @@ function setupEditorEvents(){
 //  PAGE: EDITOR
 // ══════════════════════════════════════════════════════════════════
 function pgEditor(){
-  const dpr=window.devicePixelRatio||1;
-  Ed.dpr=dpr;
-  const toolbarH=64;
-  const headerH=56;
-  const cvH=Math.max(280,window.innerHeight-headerH-toolbarH);
-  const cvW=Math.min(window.innerWidth,500);
   return`
-<div style="display:flex;flex-direction:column;height:100vh;height:-webkit-fill-available;overflow:hidden">
+<div id="ed-root" style="position:fixed;top:0;left:0;right:0;bottom:0;display:flex;flex-direction:column;background:#050810;max-width:500px;margin:0 auto;z-index:400">
   <!-- Header -->
-  <div class="ph" style="flex-shrink:0">
+  <div class="ph" style="flex-shrink:0;padding-top:env(safe-area-inset-top,0px)">
     <button class="btn-icon btn" onclick="App.setState({view:App.results?.pending?'home':'results'})">${I.back}</button>
     <span class="ph-title">MANUAL EDITOR</span>
     <div style="display:flex;align-items:center;gap:10px">
@@ -1392,35 +1385,32 @@ function pgEditor(){
       <div class="ed-badge green" id="ed-count" style="min-width:32px">${Ed.shots.length}</div>
     </div>
   </div>
-  <!-- Canvas area -->
-  <div style="flex:1;position:relative;overflow:hidden;background:#050810;min-height:0">
-    <canvas id="ed-canvas" width="${Math.round(cvW*dpr)}" height="${Math.round(cvH*dpr)}" style="width:${cvW}px;height:${cvH}px;display:block"></canvas>
-    <!-- Hint overlay -->
+  <!-- Canvas area fills all remaining space -->
+  <div id="ed-wrap" style="flex:1;position:relative;overflow:hidden;background:#050810;min-height:0">
+    <canvas id="ed-canvas" style="display:block;touch-action:none;cursor:crosshair"></canvas>
     <div id="ed-hint" class="ed-hint">
       <div style="font-family:var(--head);font-size:.72rem;letter-spacing:.12em;color:var(--green);margin-bottom:10px">HOW TO EDIT</div>
       <div style="color:var(--text2);font-size:.92rem;line-height:1.7;text-align:left">
-        <div style="margin-bottom:6px">📍 <strong>Tap/click empty area</strong> — add shot</div>
-        <div style="margin-bottom:6px">👆 <strong>Tap/click a shot</strong> — select it</div>
-        <div style="margin-bottom:6px">✋ <strong>Drag a shot</strong> — move it</div>
+        <div style="margin-bottom:6px">📍 <strong>Tap/click empty</strong> — add shot</div>
+        <div style="margin-bottom:6px">👆 <strong>Tap a shot</strong> — select</div>
+        <div style="margin-bottom:6px">✋ <strong>Drag</strong> — move shot</div>
         <div style="margin-bottom:6px">🤏 <strong>Pinch</strong> — zoom in/out</div>
-        <div style="margin-bottom:6px">🖱️ <strong>Scroll wheel</strong> — zoom</div>
-        <div>⌨️ <strong>+/−</strong> keys or buttons below — zoom</div>
+        <div>🖱️ <strong>Scroll wheel / + − buttons</strong> — zoom</div>
       </div>
       <div style="margin-top:12px;color:var(--text3);font-size:.8rem">Tap anywhere to dismiss</div>
     </div>
   </div>
-  <!-- Toolbar — static flex item (NOT position:fixed) so it's always reachable -->
-  <div style="flex-shrink:0;background:rgba(5,8,16,.97);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-top:1px solid var(--border2);padding:10px 14px;padding-bottom:calc(10px + env(safe-area-inset-bottom,0px));display:flex;align-items:center;gap:6px;z-index:300">
-    <button class="btn btn-ghost" style="padding:10px 13px;font-size:.72rem" onclick="Ed.undo()">${I.undo} UNDO</button>
-    <button id="ed-del" class="btn btn-danger" style="padding:10px 13px;font-size:.72rem;opacity:.3;pointer-events:none" onclick="Ed.deleteSelected()">${I.trash} DEL</button>
-    <!-- Zoom controls for PC/mouse users -->
-    <div style="display:flex;align-items:center;gap:3px;margin-left:2px;background:var(--bg2);border:1px solid var(--border2);border-radius:6px;padding:2px">
-      <button onclick="Ed.zoomBy(0.78)" title="Zoom out (-)" style="background:none;border:none;cursor:pointer;width:32px;height:32px;color:var(--text2);font-size:1.1rem;display:flex;align-items:center;justify-content:center;border-radius:4px;touch-action:manipulation" onmouseenter="this.style.background='var(--bg3)'" onmouseleave="this.style.background='none'">−</button>
-      <button onclick="Ed.fitToView()" title="Fit / Reset zoom" style="background:none;border:none;cursor:pointer;padding:0 6px;height:32px;color:var(--text3);font-family:var(--mono);font-size:.65rem;display:flex;align-items:center;border-radius:4px;touch-action:manipulation;min-width:38px;justify-content:center" id="ed-zoom-btn" onmouseenter="this.style.background='var(--bg3)'" onmouseleave="this.style.background='none'">FIT</button>
-      <button onclick="Ed.zoomBy(1.28)" title="Zoom in (+)" style="background:none;border:none;cursor:pointer;width:32px;height:32px;color:var(--text2);font-size:1.1rem;display:flex;align-items:center;justify-content:center;border-radius:4px;touch-action:manipulation" onmouseenter="this.style.background='var(--bg3)'" onmouseleave="this.style.background='none'">+</button>
+  <!-- Toolbar — flex item, never clipped, always reachable -->
+  <div id="ed-toolbar" style="flex-shrink:0;background:rgba(5,8,16,.97);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-top:1px solid var(--border2);padding:8px 12px;padding-bottom:calc(8px + env(safe-area-inset-bottom,0px));display:flex;align-items:center;gap:6px;z-index:401">
+    <button class="btn btn-ghost" style="padding:10px 12px;font-size:.7rem;min-height:44px" onclick="Ed.undo()">${I.undo} UNDO</button>
+    <button id="ed-del" class="btn btn-danger" style="padding:10px 12px;font-size:.7rem;opacity:.3;pointer-events:none;min-height:44px" onclick="Ed.deleteSelected()">${I.trash} DEL</button>
+    <div style="display:flex;align-items:center;gap:2px;background:var(--bg2);border:1px solid var(--border2);border-radius:6px;padding:3px">
+      <button ontouchend="event.preventDefault();Ed.zoomBy(0.72)" onclick="Ed.zoomBy(0.72)" style="background:none;border:none;cursor:pointer;width:36px;height:36px;color:var(--text2);font-size:1.2rem;display:flex;align-items:center;justify-content:center;border-radius:4px;touch-action:manipulation;-webkit-tap-highlight-color:transparent">−</button>
+      <button ontouchend="event.preventDefault();Ed.fitToView()" onclick="Ed.fitToView()" style="background:none;border:none;cursor:pointer;padding:0 8px;height:36px;color:var(--text3);font-family:var(--mono);font-size:.65rem;display:flex;align-items:center;border-radius:4px;touch-action:manipulation;-webkit-tap-highlight-color:transparent;min-width:36px;justify-content:center">FIT</button>
+      <button ontouchend="event.preventDefault();Ed.zoomBy(1.38)" onclick="Ed.zoomBy(1.38)" style="background:none;border:none;cursor:pointer;width:36px;height:36px;color:var(--text2);font-size:1.2rem;display:flex;align-items:center;justify-content:center;border-radius:4px;touch-action:manipulation;-webkit-tap-highlight-color:transparent">+</button>
     </div>
     <div style="flex:1"></div>
-    <button class="btn btn-primary" style="padding:12px 18px;font-size:.75rem" onclick="applyEdits()">
+    <button class="btn btn-primary" style="padding:10px 16px;font-size:.75rem;min-height:44px" ontouchend="event.preventDefault();applyEdits()" onclick="applyEdits()">
       ${I.ok}&nbsp; APPLY
     </button>
   </div>
@@ -2261,12 +2251,22 @@ function render(){
     });
   }
   if(App.view==='editor'){
-    const canvas=document.getElementById('ed-canvas');
-    if(canvas&&Ed.img){
+    requestAnimationFrame(()=>{
+      const wrap=document.getElementById('ed-wrap');
+      const canvas=document.getElementById('ed-canvas');
+      if(!wrap||!canvas||!Ed.img)return;
+      const dpr=window.devicePixelRatio||1;
+      Ed.dpr=dpr;
+      const w=wrap.clientWidth;
+      const h=wrap.clientHeight;
+      canvas.width=Math.round(w*dpr);
+      canvas.height=Math.round(h*dpr);
+      canvas.style.width=w+'px';
+      canvas.style.height=h+'px';
       Ed.fit(canvas.width,canvas.height);
       Ed.redraw();
       setupEditorEvents();
-    }
+    });
   }
   if(App.view==='report'&&App.reportText){
     const w=document.getElementById('ai-report-wrap');
