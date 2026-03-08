@@ -81,7 +81,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:26px;heigh
 input[type=range]::-moz-range-thumb{width:26px;height:26px;border-radius:50%;background:var(--green);cursor:pointer;border:2px solid var(--bg)}
 
 /* ── NAV ── */
-.bottom-nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:500px;background:rgba(8,12,24,.98);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-top:1px solid rgba(0,212,255,0.18);display:flex;z-index:300;padding-bottom:env(safe-area-inset-bottom,0px)}
+.bottom-nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:500px;background:rgba(8,12,24,.98);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-top:1px solid rgba(0,212,255,0.18);display:flex;z-index:300;padding-bottom:env(safe-area-inset-bottom,0)}
 .nav-btn{flex:1;min-height:56px;padding:10px 4px 12px;background:none;border:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;transition:color .2s;font-family:var(--head);font-size:.58rem;letter-spacing:.06em;font-weight:600;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
 .nav-btn.active{color:#fff}
 .nav-btn:not(.active){color:rgba(255,255,255,0.38)}
@@ -91,7 +91,7 @@ input[type=range]::-moz-range-thumb{width:26px;height:26px;border-radius:50%;bac
 .nav-active-bar{height:3px;background:var(--green);border-radius:2px;width:28px;margin-bottom:-4px;box-shadow:0 0 8px rgba(0,255,136,0.6)}
 
 /* ── PAGE HEADER ── */
-.ph{padding:0 16px;min-height:56px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--border);background:rgba(5,8,16,.92);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);position:sticky;top:0;z-index:200;padding-top:env(safe-area-inset-top,0px)}
+.ph{padding:0 16px;min-height:56px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--border);background:rgba(5,8,16,.92);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);position:sticky;top:0;z-index:200;padding-top:env(safe-area-inset-top,0)}
 .ph-title{font-family:var(--head);font-size:.82rem;letter-spacing:.18em;color:var(--text);flex:1}
 .ph-sub{font-family:var(--head);font-size:.62rem;letter-spacing:.1em;color:var(--text3)}
 
@@ -140,7 +140,7 @@ input[type=range]::-moz-range-thumb{width:26px;height:26px;border-radius:50%;bac
 
 /* ── EDITOR ── */
 #ed-canvas{display:block;touch-action:none;cursor:crosshair}
-.ed-toolbar{flex-shrink:0;background:rgba(5,8,16,.97);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-top:1px solid var(--border2);padding:10px 14px;padding-bottom:calc(10px + env(safe-area-inset-bottom,0px));display:flex;align-items:center;gap:8px;}
+.ed-toolbar{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:500px;background:rgba(5,8,16,.97);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-top:1px solid var(--border2);padding:10px 14px;padding-bottom:calc(10px + env(safe-area-inset-bottom,0));display:flex;align-items:center;gap:8px;z-index:300}
 .ed-badge{display:inline-flex;align-items:center;justify-content:center;min-width:28px;height:28px;border-radius:14px;background:var(--red-dim);border:1px solid var(--red);color:var(--red);font-family:var(--head);font-size:.68rem;padding:0 8px}
 .ed-badge.green{background:var(--green-dim);border-color:var(--green);color:var(--green)}
 .ed-hint{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(5,8,16,.92);border:1px solid var(--border2);border-radius:12px;padding:20px 24px;text-align:center;pointer-events:none;transition:opacity .4s;z-index:10;width:min(88vw,280px)}
@@ -155,13 +155,11 @@ input[type=range]::-moz-range-thumb{width:26px;height:26px;border-radius:50%;bac
   .report-wrap{page-break-inside:avoid}
   .rp-section{page-break-inside:avoid}
 }
-@page{margin:12mm 10mm;}
 
 /* ── MISC ── */
 .divider{height:1px;background:var(--border);margin:0}
 .tag{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:3px;font-family:var(--head);font-size:.5rem;letter-spacing:.08em}
 .shimmer{background:linear-gradient(90deg,var(--bg3) 25%,var(--bg4) 50%,var(--bg3) 75%);background-size:200% 100%;animation:shimmer 1.6s infinite}
-.dsdot.active{background:rgba(0,212,255,.18);box-shadow:0 0 8px rgba(0,212,255,.4)}
 </style>
 </head>
 <body>
@@ -176,7 +174,7 @@ input[type=range]::-moz-range-thumb{width:26px;height:26px;border-radius:50%;bac
   // Build & inject manifest dynamically (works on Chrome/Edge/Firefox/Android/Desktop)
   const iconSvg=`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' fill='%23050810'/><circle cx='256' cy='256' r='230' stroke='%2300ff88' stroke-width='10' fill='none'/><circle cx='256' cy='256' r='160' stroke='%2300ff88' stroke-width='8' fill='none'/><circle cx='256' cy='256' r='90' stroke='%2300ff88' stroke-width='6' fill='none'/><circle cx='256' cy='256' r='30' stroke='%2300ff88' stroke-width='4' fill='none'/><circle cx='256' cy='256' r='10' fill='%2300ff88'/><line x1='20' y1='256' x2='180' y2='256' stroke='%2300ff88' stroke-width='8'/><line x1='332' y1='256' x2='492' y2='256' stroke='%2300ff88' stroke-width='8'/><line x1='256' y1='20' x2='256' y2='180' stroke='%2300ff88' stroke-width='8'/><line x1='256' y1='332' x2='256' y2='492' stroke='%2300ff88' stroke-width='8'/></svg>`;
   const iconUrl=`data:image/svg+xml,${iconSvg}`;
-  const manifest={name:'AirScan Pro',short_name:'AirScan',description:'0.177 Air Gun Shot Analysis',start_url:location.pathname||'/',scope:location.pathname||'/',display:'standalone',orientation:'portrait',background_color:'#050810',theme_color:'#050810',icons:[{src:iconUrl,sizes:'192x192',type:'image/svg+xml'},{src:iconUrl,sizes:'512x512',type:'image/svg+xml',purpose:'any maskable'}]};
+  const manifest={name:'AirScan Pro',short_name:'AirScan',description:'0.177 Air Gun Shot Analysis',start_url:location.href,scope:location.href,display:'standalone',orientation:'portrait',background_color:'#050810',theme_color:'#050810',icons:[{src:iconUrl,sizes:'192x192',type:'image/svg+xml'},{src:iconUrl,sizes:'512x512',type:'image/svg+xml',purpose:'any maskable'}]};
   const blob=new Blob([JSON.stringify(manifest)],{type:'application/json'});
   document.getElementById('pwa-manifest').href=URL.createObjectURL(blob);
 })();
@@ -202,7 +200,8 @@ function getPlatformInstallTip(){
   const isSafari=/Safari/.test(ua)&&!/Chrome|CriOS|FxiOS|EdgiOS/.test(ua);
   const isFirefox=/Firefox|FxiOS/.test(ua);
   const isEdge=/Edg\//.test(ua);
-  const isChrome=/Chrome|CrMOS|CriOS/.test(ua);
+  // On iOS, Chrome sends CriOS not Chrome; avoid false-positives from Safari's Chrome-like strings
+  const isChrome=isIOS?/CriOS/.test(ua):/Chrome|CrMOS/.test(ua)&&!/Edg\//.test(ua);
   const isStandalone=window.matchMedia('(display-mode: standalone)').matches||navigator.standalone;
   if(isStandalone)return{installed:true,text:'✅ Running as installed app — data is fully isolated.'};
   if(isIOS&&isSafari)return{text:'Safari → tap <strong style="color:var(--text)">Share ↑</strong> → <strong style="color:var(--text)">Add to Home Screen</strong>'};
@@ -262,196 +261,47 @@ function morph(bin,w,h,op,r){
   }
   return out;
 }
-// ── ADVANCED CV ENGINE — OpenCV-style pellet hole detection ──────
-// Separable Gaussian blur (fast O(n·r) per pixel)
-function gaussBlur(gray,w,h,sigma){
-  if(sigma<=0)return gray.slice();
-  const r=Math.max(1,Math.ceil(sigma*2.6));
-  const kern=new Float32Array(2*r+1);
-  let ks=0;
-  for(let i=0;i<=2*r;i++){kern[i]=Math.exp(-(i-r)*(i-r)/(2*sigma*sigma));ks+=kern[i];}
-  for(let i=0;i<=2*r;i++)kern[i]/=ks;
-  const tmp=new Float32Array(w*h),out=new Float32Array(w*h);
-  for(let y=0;y<h;y++)for(let x=0;x<w;x++){
-    let v=0,ws=0;
-    for(let k=0;k<=2*r;k++){const xx=Math.max(0,Math.min(w-1,x+(k-r)));v+=gray[y*w+xx]*kern[k];ws+=kern[k];}
-    tmp[y*w+x]=v/ws;
-  }
-  for(let y=0;y<h;y++)for(let x=0;x<w;x++){
-    let v=0,ws=0;
-    for(let k=0;k<=2*r;k++){const yy=Math.max(0,Math.min(h-1,y+(k-r)));v+=tmp[yy*w+x]*kern[k];ws+=kern[k];}
-    out[y*w+x]=v/ws;
-  }
-  return out;
-}
-// Integral image for O(1) area sums
-function buildIntegral(gray,w,h){
-  const I=new Float64Array((w+1)*(h+1));
-  for(let y=0;y<h;y++)for(let x=0;x<w;x++)
-    I[(y+1)*(w+1)+(x+1)]=gray[y*w+x]+I[y*(w+1)+(x+1)]+I[(y+1)*(w+1)+x]-I[y*(w+1)+x];
-  return I;
-}
-function iSum(I,w,x1,y1,x2,y2){
-  return I[(y2+1)*(w+1)+(x2+1)]-I[y1*(w+1)+(x2+1)]-I[(y2+1)*(w+1)+x1]+I[y1*(w+1)+x1];
-}
-// Adaptive mean threshold (finds dark spots regardless of global illumination)
-function adaptiveThresh(gray,w,h,blockSz,C){
-  const r=Math.floor(blockSz/2);
-  const I=buildIntegral(gray,w,h);
-  const out=new Uint8Array(w*h);
-  for(let y=0;y<h;y++)for(let x=0;x<w;x++){
-    const x1=Math.max(0,x-r),y1=Math.max(0,y-r),x2=Math.min(w-1,x+r),y2=Math.min(h-1,y+r);
-    const area=(x2-x1+1)*(y2-y1+1);
-    out[y*w+x]=gray[y*w+x]<iSum(I,w,x1,y1,x2,y2)/area-C?1:0;
-  }
-  return out;
-}
-// Sobel edge magnitude
-function sobelMag(gray,w,h){
-  const mag=new Float32Array(w*h);
-  for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++){
-    const gx=-gray[(y-1)*w+x-1]-2*gray[y*w+x-1]-gray[(y+1)*w+x-1]
-             +gray[(y-1)*w+x+1]+2*gray[y*w+x+1]+gray[(y+1)*w+x+1];
-    const gy=-gray[(y-1)*w+x-1]-2*gray[(y-1)*w+x]-gray[(y-1)*w+x+1]
-             +gray[(y+1)*w+x-1]+2*gray[(y+1)*w+x]+gray[(y+1)*w+x+1];
-    mag[y*w+x]=Math.hypot(gx,gy);
-  }
-  return mag;
-}
-// BFS connected components — returns array of blob descriptors
-function connComponents(bin,w,h){
-  const vis=new Uint8Array(w*h);
-  const blobs=[];
-  const N4=[[-1,0],[1,0],[0,-1],[0,1]];
-  for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++){
-    const i0=y*w+x;
-    if(!bin[i0]||vis[i0])continue;
-    const stk=[i0],px=[];
-    vis[i0]=1;
-    let sx=0,sy=0,mnX=x,mxX=x,mnY=y,mxY=y;
+function detectHoles(canvas){
+  const ctx=canvas.getContext('2d');
+  const{width:w,height:h}=canvas;
+  const d=ctx.getImageData(0,0,w,h).data;
+  const g=toGray(d,w,h);
+  let sum=0,sq=0;
+  for(const v of g){sum+=v;sq+=v*v;}
+  const mn=sum/(w*h),sd=Math.sqrt(Math.max(0,sq/(w*h)-mn*mn));
+  const thr=Math.max(32,Math.min(mn-sd*1.15,148));
+  let bin=new Uint8Array(w*h);
+  for(let i=0;i<g.length;i++)bin[i]=g[i]<thr?1:0;
+  bin=morph(morph(bin,w,h,'e',1),w,h,'d',3);
+  const vis=new Uint8Array(w*h),blobs=[];
+  for(let y=3;y<h-3;y++)for(let x=3;x<w-3;x++){
+    const i=y*w+x;
+    if(!bin[i]||vis[i])continue;
+    const stk=[i],px=[];vis[i]=1;
     while(stk.length){
-      const i=stk.pop();px.push(i);
-      const cy=(i/w)|0,cx=i%w;
-      sx+=cx;sy+=cy;
-      mnX=Math.min(mnX,cx);mxX=Math.max(mxX,cx);
-      mnY=Math.min(mnY,cy);mxY=Math.max(mxY,cy);
-      for(const[dy,dx]of N4){
+      const c=stk.pop();px.push(c);
+      const cy=~~(c/w),cx=c%w;
+      for(const[dy,dx]of[[-1,0],[1,0],[0,-1],[0,1],[-1,-1],[-1,1],[1,-1],[1,1]]){
         const ny=cy+dy,nx=cx+dx;
-        if(ny<0||ny>=h||nx<0||nx>=w)continue;
+        if(ny<1||ny>=h-1||nx<1||nx>=w-1)continue;
         const ni=ny*w+nx;
         if(bin[ni]&&!vis[ni]){vis[ni]=1;stk.push(ni);}
       }
     }
-    blobs.push({px,cx:sx/px.length,cy:sy/px.length,mnX,mxX,mnY,mxY,area:px.length});
+    if(px.length>=10&&px.length<=9000)blobs.push(px);
   }
-  return blobs;
-}
-// Full detection pipeline — returns [{cx,cy,radius,confidence,source:'auto'}]
-function detectPelletHoles(canvas){
-  const ctx=canvas.getContext('2d');
-  const{width:w,height:h}=canvas;
-  const imgData=ctx.getImageData(0,0,w,h).data;
-
-  // 1 ── Grayscale
-  const gray=toGray(imgData,w,h);
-
-  // 2 ── Local contrast enhancement (CLAHE-like): subtract heavily-blurred bg
-  const bgSigma=Math.max(w,h)*0.038;
-  const bg=gaussBlur(gray,w,h,bgSigma);
-  const enhanced=new Float32Array(w*h);
-  for(let i=0;i<w*h;i++)enhanced[i]=Math.max(0,Math.min(255,128+(gray[i]-bg[i])*1.9));
-
-  // 3 ── Noise suppression
-  const smooth=gaussBlur(enhanced,w,h,1.1);
-
-  // 4 ── Expected pellet hole size in pixels
-  const targetR=Math.min(w,h)*0.47;
-  const pxMm=targetR/115;
-  const minR=Math.max(3,pxMm*1.5);   // ~1.5mm minimum
-  const maxR=pxMm*5.5;               // ~5.5mm maximum
-  const minArea=Math.PI*minR*minR*0.55;
-  const maxArea=Math.PI*maxR*maxR*2.8;
-
-  // 5 ── Adaptive threshold: dark spots on bright paper
-  const bsz=Math.max(15,Math.round(maxR*4.5)|1);   // block must be odd
-  const blockSz=bsz%2===0?bsz+1:bsz;
-  const binary=adaptiveThresh(smooth,w,h,blockSz,5);
-
-  // 6 ── Morphology: close small gaps, remove 1-px noise
-  let clean=morph(binary,w,h,'d',1);
-  clean=morph(clean,w,h,'e',1);
-
-  // 7 ── Connected components
-  const blobs=connComponents(clean,w,h);
-
-  // 8 ── Edge magnitudes for confidence scoring
-  const edges=sobelMag(gaussBlur(gray,w,h,1.4),w,h);
-
-  // 9 ── Filter & score each blob
-  const candidates=[];
-  for(const b of blobs){
-    if(b.area<minArea||b.area>maxArea)continue;
-    const bw=b.mxX-b.mnX+1,bh2=b.mxY-b.mnY+1;
-    const aspect=bw/bh2;
-    if(aspect<0.28||aspect>3.5)continue;
-
-    const radius=Math.sqrt(b.area/Math.PI);
-    if(radius<minR||radius>maxR*1.35)continue;
-
-    // Circularity = 4π·A / P²  (1.0 = perfect circle)
-    let perim=0;
-    for(const idx of b.px){
-      const py=(idx/w)|0,px2=idx%w;
-      for(const[dy,dx]of[[-1,0],[1,0],[0,-1],[0,1]]){
-        if(!clean[(py+dy)*w+(px2+dx)]){perim++;break;}
-      }
-    }
-    if(perim===0)continue;
-    const circ=(4*Math.PI*b.area)/(perim*perim);
-    if(circ<0.32)continue;
-
-    // Darkness contrast: inner vs annular surround
-    const ri=Math.ceil(radius*0.85),ro=Math.ceil(radius*2.0);
-    let inS=0,inC=0,outS=0,outC=0;
-    const x1=Math.max(0,~~(b.cx-ro)),x2=Math.min(w-1,~~(b.cx+ro));
-    const y1=Math.max(0,~~(b.cy-ro)),y2=Math.min(h-1,~~(b.cy+ro));
-    for(let iy=y1;iy<=y2;iy++)for(let ix=x1;ix<=x2;ix++){
-      const d=Math.hypot(ix-b.cx,iy-b.cy);
-      if(d<ri){inS+=gray[iy*w+ix];inC++;}
-      else if(d<ro&&d>radius*1.15){outS+=gray[iy*w+ix];outC++;}
-    }
-    if(!inC||!outC)continue;
-    const contrast=(outS/outC)-(inS/inC);
-    if(contrast<7)continue;
-
-    // Edge ring score: how much Sobel edge energy rings the blob perimeter
-    let edgeSum=0,edgeCnt=0;
-    const er=Math.ceil(radius*1.15);
-    for(let angle=0;angle<Math.PI*2;angle+=0.18){
-      const ex=~~(b.cx+er*Math.cos(angle)),ey=~~(b.cy+er*Math.sin(angle));
-      if(ex>=0&&ex<w&&ey>=0&&ey<h){edgeSum+=edges[ey*w+ex];edgeCnt++;}
-    }
-    const edgeScore=edgeCnt?Math.min(1,edgeSum/edgeCnt/55):0;
-
-    // Only keep detections inside the target area (generous margin)
-    const distFromCenter=Math.hypot(b.cx-w/2,b.cy-h/2);
-    if(distFromCenter>targetR*1.05)continue;
-
-    const circScore=Math.min(1,circ);
-    const contrastScore=Math.min(1,contrast/65);
-    const confidence=circScore*0.38+contrastScore*0.40+edgeScore*0.22;
-
-    candidates.push({cx:b.cx,cy:b.cy,radius:Math.max(4,radius),confidence,source:'auto'});
+  const holes=[];
+  for(const px of blobs){
+    let sx=0,sy=0,mnX=w,mxX=0,mnY=h,mxY=0;
+    for(const i of px){const y=~~(i/w),x=i%w;sx+=x;sy+=y;mnX=Math.min(mnX,x);mxX=Math.max(mxX,x);mnY=Math.min(mnY,y);mxY=Math.max(mxY,y);}
+    const cx=sx/px.length,cy=sy/px.length,ar=(mxX-mnX+1)/(mxY-mnY+1);
+    if(ar<0.22||ar>4.5)continue;
+    const r=Math.sqrt(px.length/Math.PI);
+    if(px.length/(Math.PI*r*r)<0.18)continue;
+    holes.push({cx,cy,radius:Math.max(r,5),area:px.length});
   }
-
-  // 10 ── NMS: keep highest-confidence when blobs overlap
-  candidates.sort((a,b2)=>b2.confidence-a.confidence);
   const kept=[];
-  for(const c of candidates){
-    const minDist=Math.max(c.radius,kept[0]?.radius||0)*1.6;
-    if(kept.every(k=>Math.hypot(c.cx-k.cx,c.cy-k.cy)>Math.max(c.radius,k.radius)*1.55))
-      kept.push(c);
-  }
+  for(const h2 of holes)if(kept.every(k=>Math.hypot(h2.cx-k.cx,h2.cy-k.cy)>16))kept.push(h2);
   return kept;
 }
 function scoreShots(holes,canvas,mode){
@@ -466,7 +316,7 @@ function scoreShots(holes,canvas,mode){
     return{...hole,id:idx+1,dist_px:dist,score,decimal:Math.round(dec*10)/10};
   });
 }
-function calcStats(shots,canvas,mode='integer'){
+function calcStats(shots,canvas){
   if(!shots.length)return null;
   const{width:w,height:h}=canvas;
   const maxR=Math.min(w,h)*0.47,pxMm=maxR/115,cx=w/2,cy=h/2;
@@ -476,16 +326,13 @@ function calcStats(shots,canvas,mode='integer'){
   let es=0;
   for(let i=0;i<shots.length;i++)for(let j=i+1;j<shots.length;j++)
     es=Math.max(es,Math.hypot(shots[i].cx-shots[j].cx,shots[i].cy-shots[j].cy));
-  const totalScore=mode==='decimal'
-    ?Math.round(shots.reduce((a,s)=>a+s.decimal,0)*10)/10
-    :shots.reduce((a,s)=>a+s.score,0);
   return{
     mpiX:mX,mpiY:mY,pxMm,
     mpiOffX:(mX-cx)/pxMm,mpiOffY:(mY-cy)/pxMm,
     meanRadMm:radii.reduce((a,b)=>a+b,0)/radii.length/pxMm,
     extremeSpreadMm:es/pxMm,
-    totalScore,
-    maxScore:mode==='decimal'?shots.length*10.9:shots.length*10
+    totalScore:shots.reduce((a,s)=>a+s.score,0),
+    maxScore:shots.length*10
   };
 }
 function drawOverlay(canvas,shots,stats){
@@ -618,12 +465,15 @@ function buildHeatmap(sessions,size=200){
   let allShots=[];
   sessions.forEach(s=>{
     if(!s.scored||!s.stats)return;
-    const scale=s.stats.pxMm||1;
-    const{mpiX:_mx,mpiY:_my}=s.stats;
+    const{pxMm,mpiX:_mx,mpiY:_my,mpiOffX,mpiOffY}=s.stats;
+    if(!pxMm)return;
+    // Reconstruct the image center from MPI position and its mm offset
+    const cx_img=_mx-mpiOffX*pxMm;
+    const cy_img=_my-mpiOffY*pxMm;
     s.scored.forEach(sh=>{
-      // normalise shot coords to mm offset from center
-      const xMm=(sh.cx-(size/2))/((size*0.46)/115);
-      const yMm=(sh.cy-(size/2))/((size*0.46)/115);
+      // Convert shot from image pixel coords to mm offset from image center
+      const xMm=(sh.cx-cx_img)/pxMm;
+      const yMm=(sh.cy-cy_img)/pxMm;
       allShots.push({xMm,yMm,score:sh.score});
     });
   });
@@ -862,55 +712,17 @@ const App={
 const STEPS=['Loading image','Preprocessing (CLAHE)','Perspective alignment','Ring detection','Bullet detection','Calculating scores','Rendering overlay','AI coaching'];
 
 // ══════════════════════════════════════════════════════════════════
-//  PIPELINE — auto-detect then open editor for review/correction
+//  PIPELINE — go straight to manual editor, no auto-detection
 // ══════════════════════════════════════════════════════════════════
-const _tick=()=>new Promise(r=>setTimeout(r,18));
 async function runAnalysis(url){
   const img=await loadImg(url);
   Ed.init(url,[]);
   Ed.img=img;Ed.imgW=img.width;Ed.imgH=img.height;
+  // create a blank pending session (saved on apply)
   const id=Date.now();
   const session={id,cfg:{...App.cfg},scored:[],stats:null,overlayUrl:null,imgUrl:url,ts:new Date().toISOString(),tip:null,pending:true};
   App.results=session;
-  App.setState({view:'detecting',tip:null,tipLoading:false,viewSession:null});
-  // yield so detecting screen paints before heavy CV work
-  await _tick();
-  try{
-    const _setStatus=txt=>{const el=document.getElementById('det-status');if(el)el.textContent=txt;};
-    const _setStep=n=>{for(let i=1;i<=4;i++){const el=document.getElementById(`dstep-${i}`);if(el){el.style.color=i<n?'var(--green)':i===n?'var(--blue)':'var(--text4)';el.querySelector('.dsdot')?.classList.toggle('active',i===n);}}};
-
-    _setStep(1);_setStatus('Converting & enhancing contrast…');await _tick();
-    // Build detection canvas (max 920px for performance)
-    const detCanvas=toCanvas(img,920);
-    const scX=img.width/detCanvas.width,scY=img.height/detCanvas.height;
-
-    _setStep(2);_setStatus('Adaptive threshold & edge detection…');await _tick();
-    const detected=detectPelletHoles(detCanvas);
-
-    _setStep(3);_setStatus('Filtering & scoring candidates…');await _tick();
-    // Scale coords back to original image space
-    const shots=detected.map(d=>({
-      cx:d.cx*scX, cy:d.cy*scY,
-      radius:Math.max(4,d.radius*((scX+scY)/2)),
-      confidence:d.confidence, source:'auto'
-    }));
-
-    _setStep(4);_setStatus('Opening editor…');await _tick();
-    Ed.shots=shots;
-    App.detectedCount=shots.length;
-    App.setState({view:'editor'});
-    if(shots.length>0){
-      toast(`${shots.length} hole${shots.length!==1?'s':''} detected — review & adjust`);
-    } else {
-      toast('No holes detected — tap to place shots manually');
-    }
-  }catch(err){
-    console.error('Detection error:',err);
-    Ed.shots=[];
-    App.detectedCount=0;
-    App.setState({view:'editor'});
-    toast('Detection error — place shots manually');
-  }
+  App.setState({view:'editor',tip:null,tipLoading:false,viewSession:null});
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -918,8 +730,8 @@ async function runAnalysis(url){
 // ══════════════════════════════════════════════════════════════════
 const I={
   back:`<svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="15 18 9 12 15 6"/></svg>`,
-  up:`<svg width="19" height="19" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>`,
-  cam:`<svg width="19" height="19" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>`,
+  up:`<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>`,
+  cam:`<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>`,
   scan:`<svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>`,
   chart:`<svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>`,
   hist:`<svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
@@ -943,9 +755,9 @@ function pgHome(){
   const s=DB.sessions,cnt=s.length;
   const best=cnt?Math.max(...s.filter(x=>x.stats).map(x=>pct(x.stats.totalScore,x.stats.maxScore))):null;
   return`
-<div class="scroll-page" style="min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:44px 24px calc(90px + env(safe-area-inset-bottom,0px))">
+<div class="scroll-page" style="min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:44px 24px calc(90px + env(safe-area-inset-bottom,0))">
   <!-- Help button top-right -->
-  <div style="position:fixed;top:env(safe-area-inset-top,0px);right:0;padding:10px 14px;z-index:250">
+  <div style="position:fixed;top:env(safe-area-inset-top,0);right:0;padding:10px 14px;z-index:250">
     <button class="btn btn-icon" onclick="navTo('guide')" style="border-color:var(--border3);color:var(--text2)" title="How to use">
       <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="9" r="8"/><path d="M9 13v-1"/><path d="M9 10c0-1.5 2-1.5 2-3a2 2 0 10-4 0"/></svg>
     </button>
@@ -1023,7 +835,7 @@ function pgConfigure(){
   const c=App.cfg;
   const sel=(k,v)=>c[k]===v?'on':'';
   return`
-<div class="scroll-page" style="min-height:100vh;padding-bottom:calc(90px + env(safe-area-inset-bottom,0px))">
+<div class="scroll-page" style="min-height:100vh;padding-bottom:calc(90px + env(safe-area-inset-bottom,0))">
   <div class="ph">
     <button class="btn-icon btn" onclick="App.setState({view:'home'})">${I.back}</button>
     <span class="ph-title">CONFIGURE ANALYSIS</span>
@@ -1107,9 +919,9 @@ function pgResults(r=App.results){
   const p=stats?pct(stats.totalScore,stats.maxScore):0;
   const sc=scoreColor(p);
   return`
-<div class="scroll-page" style="padding-bottom:calc(90px + env(safe-area-inset-bottom,0px))">
+<div class="scroll-page" style="padding-bottom:calc(90px + env(safe-area-inset-bottom,0))">
   <div class="ph">
-    <button class="btn-icon btn" onclick="App.setState({view:App.viewSession?'history':App._editBackTo||'home',viewSession:null,results:App.viewSession?App.results:null})">${I.back}</button>
+    <button class="btn-icon btn" onclick="App.setState({view:App.viewSession?'history':'home',viewSession:null,results:App.viewSession?App.results:null})">${I.back}</button>
     <span class="ph-title">RESULTS</span>
     <span class="ph-sub" style="flex:1">${rc.type||'IPSC'} · ${rc.caliber||'9mm'}</span>
     <button class="btn btn-amber" style="padding:8px 13px;font-size:.6rem;font-weight:700" onclick="openEditor()">${I.edit} EDIT</button>
@@ -1207,10 +1019,6 @@ const Ed={
     this.imgUrl=imgUrl;
     this.shots=shots.map(s=>({cx:s.cx,cy:s.cy,radius:s.radius||this.DEFAULT_R}));
     this.history=[];this.selected=-1;this.SHOW_HINT=true;
-    // Reset pan/zoom and all interaction state
-    this.scale=1;this.tx=0;this.ty=0;
-    this.dragIdx=-1;this.isPan=false;this.isDrag=false;this.hasMoved=false;
-    this.touches=[];this.pinchDist0=0;this.pinchScale0=1;this.pinchTx0=0;this.pinchTy0=0;
   },
   push(){this.history.push(this.shots.map(s=>({...s})));if(this.history.length>40)this.history.shift();},
   undo(){if(!this.history.length){toast('Nothing to undo');return;}this.shots=this.history.pop();this.selected=-1;this.redraw();document.getElementById('ed-count').textContent=this.shots.length;},
@@ -1265,53 +1073,28 @@ const Ed={
         ctx.fillText(10-i+1,scx2,scy2-r*this.scale+fs*0.9);
       }
     }
-    // shots — cyan=auto-detected, red=manual, amber=selected
+    // shots
     this.shots.forEach((s,i)=>{
       const[sx,sy]=this.i2s(s.cx,s.cy);
       const r=Math.max(8,s.radius*this.scale);
       const sel=i===this.selected;
-      const isAuto=s.source==='auto';
-      // drop shadow
-      ctx.beginPath();ctx.arc(sx+2,sy+2,r,0,Math.PI*2);ctx.fillStyle='rgba(0,0,0,.35)';ctx.fill();
-      // fill
+      ctx.beginPath();ctx.arc(sx+2,sy+2,r,0,Math.PI*2);ctx.fillStyle='rgba(0,0,0,.3)';ctx.fill();
       ctx.beginPath();ctx.arc(sx,sy,r,0,Math.PI*2);
-      if(sel) ctx.fillStyle='rgba(255,176,32,.9)';
-      else if(isAuto) ctx.fillStyle='rgba(0,190,255,.82)';
-      else ctx.fillStyle='rgba(220,38,52,.82)';
-      ctx.fill();
-      // stroke
-      ctx.strokeStyle=sel?'#FFD700':isAuto?'rgba(255,255,255,.85)':'rgba(255,255,255,.88)';
-      ctx.lineWidth=sel?2.5:1.8;ctx.stroke();
-      // confidence arc on auto shots (arc = confidence %)
-      if(isAuto&&!sel&&s.confidence!=null){
-        const conf=s.confidence;
-        const arcColor=conf>0.62?'rgba(0,255,136,.75)':conf>0.38?'rgba(255,176,32,.75)':'rgba(255,58,74,.7)';
-        ctx.beginPath();ctx.arc(sx,sy,r+5,-Math.PI/2,-Math.PI/2+Math.PI*2*conf);
-        ctx.strokeStyle=arcColor;ctx.lineWidth=2;ctx.stroke();
-      }
-      // selection ring
+      ctx.fillStyle=sel?'rgba(255,176,32,.88)':'rgba(220,38,52,.82)';ctx.fill();
+      ctx.strokeStyle=sel?'#FFD700':'rgba(255,255,255,.88)';ctx.lineWidth=sel?2.5:1.8;ctx.stroke();
       if(sel){
         ctx.beginPath();ctx.arc(sx,sy,r+7,0,Math.PI*2);
         ctx.strokeStyle='rgba(255,215,0,.45)';ctx.lineWidth=1.5;
         ctx.setLineDash([5,4]);ctx.stroke();ctx.setLineDash([]);
       }
-      // label number
       const fs=Math.max(7,r*.82);
       ctx.font=`bold ${fs}px monospace`;ctx.textAlign='center';ctx.textBaseline='middle';
       ctx.fillStyle='#fff';ctx.fillText(i+1,sx,sy);
     });
     // zoom indicator
     const zi=document.getElementById('ed-zoom');if(zi)zi.textContent=Math.round(this.scale*100)+'%';
-    // shot count badge
+    // shot count
     const ci=document.getElementById('ed-count');if(ci)ci.textContent=this.shots.length;
-    // auto/manual badges
-    const autoN=this.shots.filter(s=>s.source==='auto').length;
-    const manN=this.shots.filter(s=>s.source!=='auto').length;
-    const ab=document.getElementById('ed-auto-badge');const mb=document.getElementById('ed-man-badge');
-    if(ab)ab.textContent=autoN+' AUTO';
-    if(mb)mb.textContent=manN+' MANUAL';
-    if(ab)ab.style.display=autoN>0?'':'none';
-    if(mb)mb.style.display=manN>0?'':'none';
     // delete button state
     const db=document.getElementById('ed-del');
     if(db){db.style.opacity=this.selected>=0?'1':'.3';db.style.pointerEvents=this.selected>=0?'auto':'none';}
@@ -1323,15 +1106,18 @@ const Ed={
   addShot(sx,sy){
     const[ix,iy]=this.s2i(sx,sy);
     if(ix<0||iy<0||ix>this.imgW||iy>this.imgH)return;
-    this.push();this.shots.push({cx:ix,cy:iy,radius:this.DEFAULT_R,source:'manual'});
+    this.push();this.shots.push({cx:ix,cy:iy,radius:this.DEFAULT_R});
     this.selected=this.shots.length-1;this.redraw();
   },
 };
 
+let _editorEventsController=null;
 function setupEditorEvents(){
   const canvas=document.getElementById('ed-canvas');if(!canvas)return;
-  if(canvas._eventsAttached)return; // prevent double-registration on rapid re-renders
-  canvas._eventsAttached=true;
+  // Abort any previous listeners on an old canvas to prevent stacking
+  if(_editorEventsController){_editorEventsController.abort();}
+  _editorEventsController=new AbortController();
+  const sig={signal:_editorEventsController.signal};
   const rect=()=>canvas.getBoundingClientRect();
   // CSS pixel coords — consistent with redraw's setTransform(dpr,...) drawing space
   const pos=(e)=>{const r=rect();return[e.clientX-r.left,e.clientY-r.top];};
@@ -1349,7 +1135,7 @@ function setupEditorEvents(){
       Ed.dragOffX=sx-scx;Ed.dragOffY=sy-scy;Ed.redraw();}
     else{Ed.isPan=true;Ed.selected=-1;Ed.panStartX=sx;Ed.panStartY=sy;Ed.panTx0=Ed.tx;Ed.panTy0=Ed.ty;Ed.hasMoved=false;Ed.redraw();}
     e.preventDefault();
-  });
+  },sig);
   canvas.addEventListener('mousemove',e=>{
     const[sx,sy]=pos(e);
     if(Ed.isDrag&&Ed.dragIdx>=0){
@@ -1364,7 +1150,7 @@ function setupEditorEvents(){
       Ed.clamp(canvas.width,canvas.height);Ed.redraw();
     }
     e.preventDefault();
-  });
+  },sig);
   canvas.addEventListener('mouseup',e=>{
     const[sx,sy]=pos(e);
     if(Ed.isDrag){
@@ -1378,7 +1164,7 @@ function setupEditorEvents(){
       }
     }
     e.preventDefault();
-  });
+  },sig);
 
   // ── TOUCH ──
   canvas.addEventListener('touchstart',e=>{
@@ -1405,7 +1191,7 @@ function setupEditorEvents(){
       const[mx,my]=pmid(ts,r);Ed.panStartX=mx;Ed.panStartY=my;
       Ed.pinchTx0=Ed.tx;Ed.pinchTy0=Ed.ty;
     }
-  },{passive:false});
+  },{passive:false,...sig});
 
   canvas.addEventListener('touchmove',e=>{
     e.preventDefault();
@@ -1431,7 +1217,7 @@ function setupEditorEvents(){
       Ed.tx+=mx-Ed.panStartX;Ed.ty+=my-Ed.panStartY;
       Ed.scale=ns;Ed.clamp(canvas.width,canvas.height);Ed.redraw();
     }
-  },{passive:false});
+  },{passive:false,...sig});
 
   canvas.addEventListener('touchend',e=>{
     e.preventDefault();
@@ -1452,7 +1238,7 @@ function setupEditorEvents(){
       // reset pinch state
       if([...e.touches].length===0){Ed.pinchDist0=0;}
     }
-  },{passive:false});
+  },{passive:false,...sig});
 
   // Mouse wheel zoom
   canvas.addEventListener('wheel',e=>{
@@ -1463,48 +1249,7 @@ function setupEditorEvents(){
     Ed.tx=sx-(sx-Ed.tx)*(ns/Ed.scale);
     Ed.ty=sy-(sy-Ed.ty)*(ns/Ed.scale);
     Ed.scale=ns;Ed.clamp(canvas.width,canvas.height);Ed.redraw();
-  },{passive:false});
-}
-
-// ══════════════════════════════════════════════════════════════════
-//  PAGE: DETECTING
-// ══════════════════════════════════════════════════════════════════
-function pgDetecting(){
-  const steps=[
-    [1,'Grayscale & contrast enhancement'],
-    [2,'Adaptive threshold & edge map'],
-    [3,'Blob analysis & circularity filter'],
-    [4,'Scoring & opening editor'],
-  ];
-  return`
-<div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 24px;background:var(--bg)">
-  <!-- Animated target icon with scan line -->
-  <div style="position:relative;width:136px;height:136px;margin-bottom:28px;flex-shrink:0">
-    ${App.imgUrl?`<img src="${App.imgUrl}" style="width:136px;height:136px;object-fit:cover;border-radius:10px;border:1px solid var(--border2);opacity:.75;display:block"/>`:''}
-    <div style="position:absolute;inset:0;border-radius:10px;overflow:hidden;pointer-events:none">
-      <div style="position:absolute;left:0;right:0;height:3px;background:linear-gradient(90deg,transparent 0%,var(--blue) 40%,rgba(0,212,255,0.9) 50%,var(--blue) 60%,transparent 100%);box-shadow:0 0 10px var(--blue);animation:scanline 1.6s ease-in-out infinite"></div>
-    </div>
-    <!-- Corner bracket marks -->
-    <div style="position:absolute;inset:0;pointer-events:none">
-      <svg width="136" height="136" fill="none" style="position:absolute;inset:0">
-        <path d="M8 24 L8 8 L24 8" stroke="var(--green)" stroke-width="2.5" stroke-linecap="round"/>
-        <path d="M112 8 L128 8 L128 24" stroke="var(--green)" stroke-width="2.5" stroke-linecap="round"/>
-        <path d="M8 112 L8 128 L24 128" stroke="var(--green)" stroke-width="2.5" stroke-linecap="round"/>
-        <path d="M128 112 L128 128 L112 128" stroke="var(--green)" stroke-width="2.5" stroke-linecap="round"/>
-      </svg>
-    </div>
-  </div>
-  <h2 style="font-family:var(--head);font-size:.88rem;letter-spacing:.22em;color:var(--text);margin-bottom:6px">DETECTING PELLET HOLES</h2>
-  <p id="det-status" style="font-family:var(--mono);font-size:.7rem;color:var(--blue);margin-bottom:28px;animation:pulse 1s ease-in-out infinite;text-align:center">Initializing CV pipeline…</p>
-  <!-- Step indicators -->
-  <div style="display:flex;flex-direction:column;gap:9px;width:100%;max-width:300px">
-    ${steps.map(([n,label])=>`
-    <div id="dstep-${n}" style="display:flex;align-items:center;gap:11px;color:var(--text4);transition:color .3s">
-      <div class="dsdot" style="width:22px;height:22px;border-radius:50%;border:1.5px solid currentColor;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-family:var(--head);font-size:.55rem;transition:all .3s">${n}</div>
-      <span style="font-family:var(--mono);font-size:.7rem">${label}</span>
-    </div>`).join('')}
-  </div>
-</div>`;
+  },{passive:false,...sig});
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -1513,27 +1258,18 @@ function pgDetecting(){
 function pgEditor(){
   const dpr=window.devicePixelRatio||1;
   Ed.dpr=dpr;
-  // Safe, precise height: subtract header (56px) + toolbar (~76px) + env safe-area-inset-bottom
-  const safeBot=parseInt(getComputedStyle(document.documentElement).getPropertyValue('--sab')||'0')||
-                (window.screen.height>812?34:0);
-  const cvH=Math.max(320,window.innerHeight-56-76-safeBot);
+  // measure actual safe-area-aware toolbar height
+  const navH=Math.round(56+20+(window.screen.height>812?34:0)); // header + toolbar + possible home indicator
+  const cvH=Math.max(320,window.innerHeight-navH);
   const cvW=Math.min(500,window.innerWidth);
-  const autoN=Ed.shots.filter(s=>s.source==='auto').length;
-  const manN=Ed.shots.filter(s=>s.source!=='auto').length;
-  const detBadge=autoN>0
-    ?`<span style="font-family:var(--head);font-size:.52rem;letter-spacing:.08em;color:var(--blue);border:1px solid rgba(0,180,255,.4);border-radius:4px;padding:2px 7px">${autoN} AUTO</span>`:'';
-  const manBadge=manN>0
-    ?`<span style="font-family:var(--head);font-size:.52rem;letter-spacing:.08em;color:var(--red);border:1px solid rgba(255,58,74,.4);border-radius:4px;padding:2px 7px">${manN} MANUAL</span>`:'';
   return`
 <div style="display:flex;flex-direction:column;height:100vh;height:-webkit-fill-available;overflow:hidden">
   <!-- Header -->
   <div class="ph" style="flex-shrink:0">
-    <button class="btn-icon btn" onclick="App.setState({view:App.results?.pending?'home':'results'})">${I.back}</button>
-    <span class="ph-title" style="font-size:.72rem">SHOT EDITOR</span>
-    <div style="display:flex;align-items:center;gap:6px">
-      ${autoN>0?`<span id="ed-auto-badge" style="font-family:var(--head);font-size:.52rem;letter-spacing:.08em;color:var(--blue);border:1px solid rgba(0,180,255,.4);border-radius:4px;padding:2px 7px">${autoN} AUTO</span>`:`<span id="ed-auto-badge" style="display:none;font-family:var(--head);font-size:.52rem;letter-spacing:.08em;color:var(--blue);border:1px solid rgba(0,180,255,.4);border-radius:4px;padding:2px 7px"></span>`}
-      ${manN>0?`<span id="ed-man-badge" style="font-family:var(--head);font-size:.52rem;letter-spacing:.08em;color:var(--red);border:1px solid rgba(255,58,74,.4);border-radius:4px;padding:2px 7px">${manN} MANUAL</span>`:`<span id="ed-man-badge" style="display:none;font-family:var(--head);font-size:.52rem;letter-spacing:.08em;color:var(--red);border:1px solid rgba(255,58,74,.4);border-radius:4px;padding:2px 7px"></span>`}
-      <span id="ed-zoom" style="font-family:var(--mono);font-size:.72rem;color:var(--text3)">100%</span>
+    <button class="btn-icon btn" onclick="handleEditorBack()">${I.back}</button>
+    <span class="ph-title">MANUAL EDITOR</span>
+    <div style="display:flex;align-items:center;gap:10px">
+      <span id="ed-zoom" style="font-family:var(--mono);font-size:.75rem;color:var(--text3)">100%</span>
       <div class="ed-badge green" id="ed-count" style="min-width:32px">${Ed.shots.length}</div>
     </div>
   </div>
@@ -1542,24 +1278,23 @@ function pgEditor(){
     <canvas id="ed-canvas" width="${Math.round(cvW*dpr)}" height="${Math.round(cvH*dpr)}" style="width:${cvW}px;height:${cvH}px;display:block"></canvas>
     <!-- Hint overlay -->
     <div id="ed-hint" class="ed-hint">
-      <div style="font-family:var(--head);font-size:.68rem;letter-spacing:.12em;color:var(--green);margin-bottom:10px">REVIEW & EDIT SHOTS</div>
-      <div style="color:var(--text2);font-size:.88rem;line-height:1.7;text-align:left">
-        <div style="margin-bottom:5px"><span style="color:var(--blue)">●</span> <strong>Cyan</strong> = auto-detected</div>
-        <div style="margin-bottom:8px"><span style="color:var(--red)">●</span> <strong>Red</strong> = manually placed</div>
-        <div style="margin-bottom:6px">📍 <strong>Tap empty</strong> — add shot</div>
-        <div style="margin-bottom:6px">👆 <strong>Tap shot</strong> — select</div>
-        <div style="margin-bottom:6px">✋ <strong>Drag shot</strong> — move</div>
-        <div>🤏 <strong>Pinch</strong> — zoom in/out</div>
+      <div style="font-family:var(--head);font-size:.72rem;letter-spacing:.12em;color:var(--green);margin-bottom:10px">HOW TO EDIT</div>
+      <div style="color:var(--text2);font-size:.92rem;line-height:1.7;text-align:left">
+        <div style="margin-bottom:6px">📍 <strong>Tap empty area</strong> — add shot</div>
+        <div style="margin-bottom:6px">👆 <strong>Tap a shot</strong> — select it</div>
+        <div style="margin-bottom:6px">✋ <strong>Drag a shot</strong> — move it</div>
+        <div style="margin-bottom:6px">🤏 <strong>Pinch</strong> — zoom in/out</div>
+        <div>🖱️ <strong>Scroll wheel</strong> — zoom</div>
       </div>
-      <div style="margin-top:10px;color:var(--text3);font-size:.78rem">Tap anywhere to dismiss</div>
+      <div style="margin-top:12px;color:var(--text3);font-size:.8rem">Tap anywhere to dismiss</div>
     </div>
   </div>
   <!-- Toolbar -->
-  <div class="ed-toolbar">
-    <button class="btn btn-ghost" style="padding:12px 14px;font-size:.72rem" onclick="Ed.undo()">${I.undo}</button>
-    <button id="ed-del" class="btn btn-danger" style="padding:12px 14px;font-size:.72rem;opacity:.3;pointer-events:none" onclick="Ed.deleteSelected()">${I.trash}</button>
+  <div class="ed-toolbar" style="flex-shrink:0">
+    <button class="btn btn-ghost" style="padding:12px 16px;font-size:.72rem" onclick="Ed.undo()">${I.undo} UNDO</button>
+    <button id="ed-del" class="btn btn-danger" style="padding:12px 16px;font-size:.72rem;opacity:.3;pointer-events:none" onclick="Ed.deleteSelected()">${I.trash} DELETE</button>
     <div style="flex:1"></div>
-    <button class="btn btn-ghost" style="padding:12px 13px;font-size:.68rem" onclick="Ed.fit(${Math.round(cvW*dpr)},${Math.round(cvH*dpr)});Ed.redraw()">FIT</button>
+    <button class="btn btn-ghost" style="padding:12px 16px;font-size:.72rem" onclick="(function(){const c=document.getElementById('ed-canvas');Ed.fit(c.width,c.height);Ed.redraw();})()">FIT</button>
     <button class="btn btn-primary" style="padding:12px 18px;font-size:.75rem" onclick="applyEdits()">
       ${I.ok}&nbsp; APPLY
     </button>
@@ -1573,7 +1308,7 @@ function pgEditor(){
 function pgHistory(){
   const s=DB.sessions;
   return`
-<div class="scroll-page" style="padding-bottom:calc(90px + env(safe-area-inset-bottom,0px))">
+<div class="scroll-page" style="padding-bottom:calc(90px + env(safe-area-inset-bottom,0))">
   <div class="ph">
     <span class="ph-title">HISTORY</span>
     ${s.length?`<button class="btn btn-danger" onclick="confirmClear()" style="font-size:.58rem">CLEAR ALL</button>`:''}
@@ -1608,7 +1343,7 @@ function pgHistory(){
 function pgProgress(){
   const ss=DB.sessions.filter(s=>s.stats&&s.scored?.length>0);
   if(ss.length<2)return`
-<div class="scroll-page" style="padding-bottom:calc(90px + env(safe-area-inset-bottom,0px))">
+<div class="scroll-page" style="padding-bottom:calc(90px + env(safe-area-inset-bottom,0))">
   <div class="ph"><span class="ph-title">PROGRESS</span></div>
   <div style="padding:80px 24px;text-align:center;color:var(--text3)">
     <p style="font-size:.95rem">Analyze at least 2 sessions to view progress charts.</p>
@@ -1623,7 +1358,7 @@ function pgProgress(){
   const trendUp=trend>overallAvg;
   const heatUrl=buildHeatmap(ss,220);
   return`
-<div class="scroll-page" style="padding-bottom:calc(90px + env(safe-area-inset-bottom,0px))">
+<div class="scroll-page" style="padding-bottom:calc(90px + env(safe-area-inset-bottom,0))">
   <div class="ph"><span class="ph-title">PROGRESS CHARTS</span><span class="ph-sub">${ss.length} SESSIONS</span></div>
 
   <!-- KPI row -->
@@ -1732,7 +1467,7 @@ function buildPBRows(ss){
 function pgReport(){
   const ss=DB.sessions.filter(s=>s.stats&&s.scored?.length>0);
   if(ss.length<3)return`
-<div class="scroll-page" style="padding-bottom:calc(90px + env(safe-area-inset-bottom,0px))">
+<div class="scroll-page" style="padding-bottom:calc(90px + env(safe-area-inset-bottom,0))">
   <div class="ph"><span class="ph-title">PROGRESS REPORT</span></div>
   <div style="padding:80px 24px;text-align:center;color:var(--text3)">
     <p style="font-size:.95rem">Analyze at least 3 sessions to generate a progress report.</p>
@@ -1758,7 +1493,7 @@ function pgReport(){
   const cfg=ss[0]?.cfg||{};
 
   return`
-<div class="scroll-page" style="padding-bottom:calc(90px + env(safe-area-inset-bottom,0px))">
+<div class="scroll-page" style="padding-bottom:calc(90px + env(safe-area-inset-bottom,0))">
   <div class="ph">
     <span class="ph-title">PROGRESS REPORT</span>
     <button class="btn btn-ghost no-print" style="font-size:.6rem;padding:7px 12px" onclick="printReport()">${I.print} PRINT</button>
@@ -2141,7 +1876,7 @@ function pgGuide(){
   ];
 
   return`
-<div class="scroll-page" style="padding-bottom:calc(90px + env(safe-area-inset-bottom,0px))">
+<div class="scroll-page" style="padding-bottom:calc(90px + env(safe-area-inset-bottom,0))">
   <div class="ph">
     <button class="btn-icon btn" onclick="navTo('home')">${I.back}</button>
     <span class="ph-title">HOW TO USE</span>
@@ -2284,7 +2019,6 @@ function render(){
   if(App.view==='home')       html=pgHome();
   else if(App.view==='camera')     html=pgCamera();
   else if(App.view==='configure')  html=pgConfigure();
-  else if(App.view==='detecting')  html=pgDetecting();
   else if(App.view==='processing') html=pgProcessing();
   else if(App.view==='results')    html=pgResults(App.viewSession||App.results);
   else if(App.view==='history')    html=pgHistory();
@@ -2321,8 +2055,29 @@ function render(){
 //  HANDLERS
 // ══════════════════════════════════════════════════════════════════
 function navTo(id){App.setState({view:id,viewSession:null});}
-function onFile(e){const f=e.target.files[0];if(!f)return;if(App.imgUrl&&App.imgUrl.startsWith('blob:'))URL.revokeObjectURL(App.imgUrl);App.imgUrl=URL.createObjectURL(f);App.setState({view:'configure'});}
-function runDemo(){const url=genDemo(8);if(App.imgUrl&&App.imgUrl.startsWith('blob:'))URL.revokeObjectURL(App.imgUrl);App.imgUrl=url;runAnalysis(url);}
+function handleEditorBack(){
+  if(App.results?.pending){
+    // Clean up: pending session was never committed — discard it
+    App.results=null;
+    _revokeAppImgUrl();
+    Ed.img=null;
+    App.setState({view:'home'});
+  } else {
+    App.setState({view:'results'});
+  }
+}
+function _revokeAppImgUrl(){
+  if(App.imgUrl&&App.imgUrl.startsWith('blob:')){URL.revokeObjectURL(App.imgUrl);App.imgUrl=null;}
+}
+function onFile(e){
+  const f=e.target.files[0];if(!f)return;
+  _revokeAppImgUrl();
+  App.imgUrl=URL.createObjectURL(f);
+  App.setState({view:'configure'});
+  // Reset file input so the same file can be re-selected
+  e.target.value='';
+}
+function runDemo(){const url=genDemo(8);App.imgUrl=url;runAnalysis(url);}
 
 // Instant chip selection — no full re-render, just toggle classes + save
 const CFG_GROUPS={
@@ -2385,29 +2140,37 @@ function capturePhoto(){
   const v=document.getElementById('camvid');if(!v)return;
   const c=document.createElement('canvas');c.width=v.videoWidth;c.height=v.videoHeight;
   c.getContext('2d').drawImage(v,0,0);
-  c.toBlob(b=>{if(App.imgUrl&&App.imgUrl.startsWith('blob:'))URL.revokeObjectURL(App.imgUrl);App.imgUrl=URL.createObjectURL(b);App.stream?.getTracks().forEach(t=>t.stop());App.stream=null;App.setState({view:'configure'});}, 'image/jpeg',.95);
+  c.toBlob(b=>{
+    _revokeAppImgUrl();
+    App.imgUrl=URL.createObjectURL(b);
+    App.stream?.getTracks().forEach(t=>t.stop());App.stream=null;
+    App.setState({view:'configure'});
+  }, 'image/jpeg',.95);
 }
 function openSession(id){
   const s=DB.sessions.find(s=>s.id===id);if(!s)return;
   App.results=s;App.tip=s.tip||null;App.viewSession=s;App.setState({view:'results'});
 }
 function delSession(id){DB.del(id);toast('Session deleted');render();}
-function confirmClear(){
-  // confirm() is blocked in PWA standalone on some iOS versions — use custom modal
-  const overlay=document.createElement('div');
-  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:9998;display:flex;align-items:center;justify-content:center;padding:24px';
-  overlay.innerHTML=`<div style="background:var(--bg2);border:1px solid var(--red);border-radius:12px;padding:28px 24px;max-width:320px;width:100%;text-align:center">
-    <div style="font-family:var(--head);font-size:.75rem;letter-spacing:.16em;color:var(--red);margin-bottom:12px">⚠ DELETE ALL DATA?</div>
-    <p style="color:var(--text2);font-size:.9rem;line-height:1.55;margin-bottom:22px">This will permanently delete all saved sessions. This cannot be undone.</p>
+function showConfirm(msg,onOk,okLabel='CONFIRM'){
+  const ov=document.createElement('div');
+  ov.style.cssText='position:fixed;inset:0;background:rgba(5,8,16,.88);z-index:9998;display:flex;align-items:center;justify-content:center;padding:24px;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)';
+  ov.innerHTML=`<div style="background:var(--bg2);border:1px solid var(--border2);border-radius:12px;padding:24px 20px;max-width:320px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,.6)">
+    <p style="color:var(--text);font-size:.95rem;line-height:1.6;margin-bottom:20px">${msg}</p>
     <div style="display:flex;gap:10px">
-      <button id="_cc_cancel" class="btn btn-ghost" style="flex:1">CANCEL</button>
-      <button id="_cc_ok" class="btn btn-danger" style="flex:1;min-height:44px">DELETE ALL</button>
+      <button class="btn btn-ghost" style="flex:1;font-size:.72rem" id="_conf-cancel">CANCEL</button>
+      <button class="btn btn-danger" style="flex:1;font-size:.72rem" id="_conf-ok">${okLabel}</button>
     </div>
   </div>`;
-  document.body.appendChild(overlay);
-  overlay.querySelector('#_cc_cancel').onclick=()=>overlay.remove();
-  overlay.querySelector('#_cc_ok').onclick=()=>{overlay.remove();DB.clear();App.results=null;App.tip=null;toast('All sessions cleared');render();};
-  overlay.onclick=e=>{if(e.target===overlay)overlay.remove();};
+  document.body.appendChild(ov);
+  ov.querySelector('#_conf-cancel').onclick=()=>ov.remove();
+  ov.querySelector('#_conf-ok').onclick=()=>{ov.remove();onOk();};
+  ov.addEventListener('click',e=>{if(e.target===ov)ov.remove();});
+}
+function confirmClear(){
+  showConfirm('Delete ALL saved sessions? This cannot be undone.',()=>{
+    DB.clear();App.results=null;App.tip=null;toast('All sessions cleared');render();
+  },'DELETE ALL');
 }
 function dlImg(url){
   if(!url){toast('No image');return;}
@@ -2445,6 +2208,8 @@ function dlCSV(){
 }
 function _fallbackDl(url,filename){
   const a=document.createElement('a');a.href=url;a.download=filename;a.click();
+  // Revoke if this was a temporary blob URL we created
+  setTimeout(()=>{try{URL.revokeObjectURL(url);}catch{}},5000);
   toast('File saved!');
 }
 function printReport(){
@@ -2475,6 +2240,8 @@ async function genAIReport(count){
 
 function openEditor(){
   const r=App.results;if(!r){toast('No session to edit');return;}
+  // Restore cfg from the session so scoring mode is correct when applyEdits runs
+  if(r.cfg){App.cfg={...r.cfg};}
   const imgSrc=r.imgUrl||App.imgUrl;
   if(!imgSrc){toast('Original image not available');return;}
   Ed.init(imgSrc,r.scored||[]);
@@ -2488,16 +2255,36 @@ function openEditor(){
 }
 
 async function applyEdits(){
-  if(!Ed.img||!Ed.shots.length){
+  if(!Ed.shots.length){
     toast('Place at least one shot first');return;
+  }
+  // Bug 1 fix: always reload fresh from Ed.imgUrl to avoid stale/invalid bitmap
+  // on second upload the HTMLImageElement reference can go stale on some platforms
+  let img=Ed.img;
+  if(!img||!img.naturalWidth){
+    if(!Ed.imgUrl){toast('Image not available');return;}
+    try{img=await loadImg(Ed.imgUrl);}catch{toast('Could not load image');return;}
+    Ed.img=img;Ed.imgW=img.naturalWidth;Ed.imgH=img.naturalHeight;
   }
   const canvas=document.createElement('canvas');
   canvas.width=Ed.imgW;canvas.height=Ed.imgH;
-  canvas.getContext('2d').drawImage(Ed.img,0,0);
+  canvas.getContext('2d').drawImage(img,0,0);
   const newScored=scoreShots(Ed.shots,canvas,App.results?.cfg?.mode||'integer');
-  const newStats=calcStats(newScored,canvas,App.results?.cfg?.mode||'integer');
+  const newStats=calcStats(newScored,canvas);
   const newOverlay=drawOverlay(canvas,newScored,newStats);
-  const updated={...App.results,scored:newScored,stats:newStats,overlayUrl:newOverlay,pending:false};
+  // Bug 14 fix: persist original image as data URL so export/restore can re-open editor
+  // Use reduced quality JPEG to keep localStorage footprint manageable
+  let persistImgUrl=Ed.imgUrl;
+  if(Ed.imgUrl&&Ed.imgUrl.startsWith('blob:')){
+    try{
+      const sc=Math.min(1,920/Math.max(Ed.imgW,Ed.imgH));
+      const sc2=document.createElement('canvas');
+      sc2.width=Math.round(Ed.imgW*sc);sc2.height=Math.round(Ed.imgH*sc);
+      sc2.getContext('2d').drawImage(img,0,0,sc2.width,sc2.height);
+      persistImgUrl=sc2.toDataURL('image/jpeg',.82);
+    }catch{persistImgUrl=null;}
+  }
+  const updated={...App.results,scored:newScored,stats:newStats,overlayUrl:newOverlay,imgUrl:persistImgUrl,pending:false};
   App.results=updated;App.tip=null;App.tipLoading=false;
   // Save or update in DB
   const sessions=DB.sessions;
@@ -2505,13 +2292,11 @@ async function applyEdits(){
   if(idx>=0){sessions[idx]={...sessions[idx],...updated};DB.sessions=sessions;}
   else{DB.add(updated);}
   toast('Shots saved — scores calculated!');
-  const _backTo=App.viewSession?'history':'home';
-  App.setState({view:'results',viewSession:null,_editBackTo:_backTo});
+  App.setState({view:'results',viewSession:null});
   // AI tip
   if(newStats&&newScored.length>0){
     App.tipLoading=true;render();
     getSessionTip(newStats,newScored.length,App.results.cfg?.type||'IPSC',App.results.cfg?.caliber||'9mm').then(t=>{
-      if(App.view!=='results')return; // don't clobber editor or other views
       if(t){App.tip=t;DB.updateTip(App.results.id,t);}
       App.setState({tipLoading:false});
     });
