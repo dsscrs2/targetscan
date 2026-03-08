@@ -140,7 +140,7 @@ input[type=range]::-moz-range-thumb{width:26px;height:26px;border-radius:50%;bac
 
 /* ── EDITOR ── */
 #ed-canvas{display:block;touch-action:none;cursor:crosshair}
-.ed-toolbar{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:500px;background:rgba(5,8,16,.97);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-top:1px solid var(--border2);padding:10px 14px;padding-bottom:calc(10px + env(safe-area-inset-bottom,0px));display:flex;align-items:center;gap:8px;z-index:300}
+.ed-toolbar{flex-shrink:0;background:rgba(5,8,16,.97);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-top:1px solid var(--border2);padding:10px 14px;padding-bottom:calc(10px + env(safe-area-inset-bottom,0px));display:flex;align-items:center;gap:8px;}
 .ed-badge{display:inline-flex;align-items:center;justify-content:center;min-width:28px;height:28px;border-radius:14px;background:var(--red-dim);border:1px solid var(--red);color:var(--red);font-family:var(--head);font-size:.68rem;padding:0 8px}
 .ed-badge.green{background:var(--green-dim);border-color:var(--green);color:var(--green)}
 .ed-hint{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(5,8,16,.92);border:1px solid var(--border2);border-radius:12px;padding:20px 24px;text-align:center;pointer-events:none;transition:opacity .4s;z-index:10;width:min(88vw,280px)}
@@ -155,6 +155,7 @@ input[type=range]::-moz-range-thumb{width:26px;height:26px;border-radius:50%;bac
   .report-wrap{page-break-inside:avoid}
   .rp-section{page-break-inside:avoid}
 }
+@page{margin:12mm 10mm;}
 
 /* ── MISC ── */
 .divider{height:1px;background:var(--border);margin:0}
@@ -174,7 +175,7 @@ input[type=range]::-moz-range-thumb{width:26px;height:26px;border-radius:50%;bac
   // Build & inject manifest dynamically (works on Chrome/Edge/Firefox/Android/Desktop)
   const iconSvg=`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' fill='%23050810'/><circle cx='256' cy='256' r='230' stroke='%2300ff88' stroke-width='10' fill='none'/><circle cx='256' cy='256' r='160' stroke='%2300ff88' stroke-width='8' fill='none'/><circle cx='256' cy='256' r='90' stroke='%2300ff88' stroke-width='6' fill='none'/><circle cx='256' cy='256' r='30' stroke='%2300ff88' stroke-width='4' fill='none'/><circle cx='256' cy='256' r='10' fill='%2300ff88'/><line x1='20' y1='256' x2='180' y2='256' stroke='%2300ff88' stroke-width='8'/><line x1='332' y1='256' x2='492' y2='256' stroke='%2300ff88' stroke-width='8'/><line x1='256' y1='20' x2='256' y2='180' stroke='%2300ff88' stroke-width='8'/><line x1='256' y1='332' x2='256' y2='492' stroke='%2300ff88' stroke-width='8'/></svg>`;
   const iconUrl=`data:image/svg+xml,${iconSvg}`;
-  const manifest={name:'AirScan Pro',short_name:'AirScan',description:'0.177 Air Gun Shot Analysis',start_url:location.href,scope:location.href,display:'standalone',orientation:'portrait',background_color:'#050810',theme_color:'#050810',icons:[{src:iconUrl,sizes:'192x192',type:'image/svg+xml'},{src:iconUrl,sizes:'512x512',type:'image/svg+xml',purpose:'any maskable'}]};
+  const manifest={name:'AirScan Pro',short_name:'AirScan',description:'0.177 Air Gun Shot Analysis',start_url:location.pathname||'/',scope:location.pathname||'/',display:'standalone',orientation:'portrait',background_color:'#050810',theme_color:'#050810',icons:[{src:iconUrl,sizes:'192x192',type:'image/svg+xml'},{src:iconUrl,sizes:'512x512',type:'image/svg+xml',purpose:'any maskable'}]};
   const blob=new Blob([JSON.stringify(manifest)],{type:'application/json'});
   document.getElementById('pwa-manifest').href=URL.createObjectURL(blob);
 })();
@@ -315,7 +316,7 @@ function scoreShots(holes,canvas,mode){
     return{...hole,id:idx+1,dist_px:dist,score,decimal:Math.round(dec*10)/10};
   });
 }
-function calcStats(shots,canvas){
+function calcStats(shots,canvas,mode='integer'){
   if(!shots.length)return null;
   const{width:w,height:h}=canvas;
   const maxR=Math.min(w,h)*0.47,pxMm=maxR/115,cx=w/2,cy=h/2;
@@ -325,13 +326,16 @@ function calcStats(shots,canvas){
   let es=0;
   for(let i=0;i<shots.length;i++)for(let j=i+1;j<shots.length;j++)
     es=Math.max(es,Math.hypot(shots[i].cx-shots[j].cx,shots[i].cy-shots[j].cy));
+  const totalScore=mode==='decimal'
+    ?Math.round(shots.reduce((a,s)=>a+s.decimal,0)*10)/10
+    :shots.reduce((a,s)=>a+s.score,0);
   return{
     mpiX:mX,mpiY:mY,pxMm,
     mpiOffX:(mX-cx)/pxMm,mpiOffY:(mY-cy)/pxMm,
     meanRadMm:radii.reduce((a,b)=>a+b,0)/radii.length/pxMm,
     extremeSpreadMm:es/pxMm,
-    totalScore:shots.reduce((a,s)=>a+s.score,0),
-    maxScore:shots.length*10
+    totalScore,
+    maxScore:mode==='decimal'?shots.length*10.9:shots.length*10
   };
 }
 function drawOverlay(canvas,shots,stats){
@@ -712,7 +716,6 @@ const STEPS=['Loading image','Preprocessing (CLAHE)','Perspective alignment','Ri
 // ══════════════════════════════════════════════════════════════════
 async function runAnalysis(url){
   const img=await loadImg(url);
-  toCanvas(img,920); // kept for side-effects / future use
   Ed.init(url,[]);
   Ed.img=img;Ed.imgW=img.width;Ed.imgH=img.height;
   // create a blank pending session (saved on apply)
@@ -918,7 +921,7 @@ function pgResults(r=App.results){
   return`
 <div class="scroll-page" style="padding-bottom:calc(90px + env(safe-area-inset-bottom,0px))">
   <div class="ph">
-    <button class="btn-icon btn" onclick="App.setState({view:App.viewSession?'history':'home',viewSession:null,results:App.viewSession?App.results:null})">${I.back}</button>
+    <button class="btn-icon btn" onclick="App.setState({view:App.viewSession?'history':App._editBackTo||'home',viewSession:null,results:App.viewSession?App.results:null})">${I.back}</button>
     <span class="ph-title">RESULTS</span>
     <span class="ph-sub" style="flex:1">${rc.type||'IPSC'} · ${rc.caliber||'9mm'}</span>
     <button class="btn btn-amber" style="padding:8px 13px;font-size:.6rem;font-weight:700" onclick="openEditor()">${I.edit} EDIT</button>
@@ -1016,6 +1019,10 @@ const Ed={
     this.imgUrl=imgUrl;
     this.shots=shots.map(s=>({cx:s.cx,cy:s.cy,radius:s.radius||this.DEFAULT_R}));
     this.history=[];this.selected=-1;this.SHOW_HINT=true;
+    // Reset pan/zoom and all interaction state
+    this.scale=1;this.tx=0;this.ty=0;
+    this.dragIdx=-1;this.isPan=false;this.isDrag=false;this.hasMoved=false;
+    this.touches=[];this.pinchDist0=0;this.pinchScale0=1;this.pinchTx0=0;this.pinchTy0=0;
   },
   push(){this.history.push(this.shots.map(s=>({...s})));if(this.history.length>40)this.history.shift();},
   undo(){if(!this.history.length){toast('Nothing to undo');return;}this.shots=this.history.pop();this.selected=-1;this.redraw();document.getElementById('ed-count').textContent=this.shots.length;},
@@ -1110,6 +1117,8 @@ const Ed={
 
 function setupEditorEvents(){
   const canvas=document.getElementById('ed-canvas');if(!canvas)return;
+  if(canvas._eventsAttached)return; // prevent double-registration on rapid re-renders
+  canvas._eventsAttached=true;
   const rect=()=>canvas.getBoundingClientRect();
   // CSS pixel coords — consistent with redraw's setTransform(dpr,...) drawing space
   const pos=(e)=>{const r=rect();return[e.clientX-r.left,e.clientY-r.top];};
@@ -1250,9 +1259,10 @@ function setupEditorEvents(){
 function pgEditor(){
   const dpr=window.devicePixelRatio||1;
   Ed.dpr=dpr;
-  // measure actual safe-area-aware toolbar height
-  const navH=Math.round(56+20+(window.screen.height>812?34:0)); // header + toolbar + possible home indicator
-  const cvH=Math.max(320,window.innerHeight-navH);
+  // Safe, precise height: subtract header (56px) + toolbar (~76px) + env safe-area-inset-bottom
+  const safeBot=parseInt(getComputedStyle(document.documentElement).getPropertyValue('--sab')||'0')||
+                (window.screen.height>812?34:0);
+  const cvH=Math.max(320,window.innerHeight-56-76-safeBot);
   const cvW=Math.min(500,window.innerWidth);
   return`
 <div style="display:flex;flex-direction:column;height:100vh;height:-webkit-fill-available;overflow:hidden">
@@ -1282,7 +1292,7 @@ function pgEditor(){
     </div>
   </div>
   <!-- Toolbar -->
-  <div class="ed-toolbar" style="flex-shrink:0">
+  <div class="ed-toolbar">
     <button class="btn btn-ghost" style="padding:12px 16px;font-size:.72rem" onclick="Ed.undo()">${I.undo} UNDO</button>
     <button id="ed-del" class="btn btn-danger" style="padding:12px 16px;font-size:.72rem;opacity:.3;pointer-events:none" onclick="Ed.deleteSelected()">${I.trash} DELETE</button>
     <div style="flex:1"></div>
@@ -2047,8 +2057,8 @@ function render(){
 //  HANDLERS
 // ══════════════════════════════════════════════════════════════════
 function navTo(id){App.setState({view:id,viewSession:null});}
-function onFile(e){const f=e.target.files[0];if(!f)return;App.imgUrl=URL.createObjectURL(f);App.setState({view:'configure'});}
-function runDemo(){const url=genDemo(8);App.imgUrl=url;runAnalysis(url);}
+function onFile(e){const f=e.target.files[0];if(!f)return;if(App.imgUrl&&App.imgUrl.startsWith('blob:'))URL.revokeObjectURL(App.imgUrl);App.imgUrl=URL.createObjectURL(f);App.setState({view:'configure'});}
+function runDemo(){const url=genDemo(8);if(App.imgUrl&&App.imgUrl.startsWith('blob:'))URL.revokeObjectURL(App.imgUrl);App.imgUrl=url;runAnalysis(url);}
 
 // Instant chip selection — no full re-render, just toggle classes + save
 const CFG_GROUPS={
@@ -2111,14 +2121,30 @@ function capturePhoto(){
   const v=document.getElementById('camvid');if(!v)return;
   const c=document.createElement('canvas');c.width=v.videoWidth;c.height=v.videoHeight;
   c.getContext('2d').drawImage(v,0,0);
-  c.toBlob(b=>{App.imgUrl=URL.createObjectURL(b);App.stream?.getTracks().forEach(t=>t.stop());App.stream=null;App.setState({view:'configure'});}, 'image/jpeg',.95);
+  c.toBlob(b=>{if(App.imgUrl&&App.imgUrl.startsWith('blob:'))URL.revokeObjectURL(App.imgUrl);App.imgUrl=URL.createObjectURL(b);App.stream?.getTracks().forEach(t=>t.stop());App.stream=null;App.setState({view:'configure'});}, 'image/jpeg',.95);
 }
 function openSession(id){
   const s=DB.sessions.find(s=>s.id===id);if(!s)return;
   App.results=s;App.tip=s.tip||null;App.viewSession=s;App.setState({view:'results'});
 }
 function delSession(id){DB.del(id);toast('Session deleted');render();}
-function confirmClear(){if(confirm('Delete ALL saved sessions? This cannot be undone.')){DB.clear();App.results=null;App.tip=null;toast('All sessions cleared');render();}}
+function confirmClear(){
+  // confirm() is blocked in PWA standalone on some iOS versions — use custom modal
+  const overlay=document.createElement('div');
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:9998;display:flex;align-items:center;justify-content:center;padding:24px';
+  overlay.innerHTML=`<div style="background:var(--bg2);border:1px solid var(--red);border-radius:12px;padding:28px 24px;max-width:320px;width:100%;text-align:center">
+    <div style="font-family:var(--head);font-size:.75rem;letter-spacing:.16em;color:var(--red);margin-bottom:12px">⚠ DELETE ALL DATA?</div>
+    <p style="color:var(--text2);font-size:.9rem;line-height:1.55;margin-bottom:22px">This will permanently delete all saved sessions. This cannot be undone.</p>
+    <div style="display:flex;gap:10px">
+      <button id="_cc_cancel" class="btn btn-ghost" style="flex:1">CANCEL</button>
+      <button id="_cc_ok" class="btn btn-danger" style="flex:1;min-height:44px">DELETE ALL</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+  overlay.querySelector('#_cc_cancel').onclick=()=>overlay.remove();
+  overlay.querySelector('#_cc_ok').onclick=()=>{overlay.remove();DB.clear();App.results=null;App.tip=null;toast('All sessions cleared');render();};
+  overlay.onclick=e=>{if(e.target===overlay)overlay.remove();};
+}
 function dlImg(url){
   if(!url){toast('No image');return;}
   const filename=`airscan_${Date.now()}.jpg`;
@@ -2205,7 +2231,7 @@ async function applyEdits(){
   canvas.width=Ed.imgW;canvas.height=Ed.imgH;
   canvas.getContext('2d').drawImage(Ed.img,0,0);
   const newScored=scoreShots(Ed.shots,canvas,App.results?.cfg?.mode||'integer');
-  const newStats=calcStats(newScored,canvas);
+  const newStats=calcStats(newScored,canvas,App.results?.cfg?.mode||'integer');
   const newOverlay=drawOverlay(canvas,newScored,newStats);
   const updated={...App.results,scored:newScored,stats:newStats,overlayUrl:newOverlay,pending:false};
   App.results=updated;App.tip=null;App.tipLoading=false;
@@ -2215,11 +2241,13 @@ async function applyEdits(){
   if(idx>=0){sessions[idx]={...sessions[idx],...updated};DB.sessions=sessions;}
   else{DB.add(updated);}
   toast('Shots saved — scores calculated!');
-  App.setState({view:'results',viewSession:null});
+  const _backTo=App.viewSession?'history':'home';
+  App.setState({view:'results',viewSession:null,_editBackTo:_backTo});
   // AI tip
   if(newStats&&newScored.length>0){
-    App.tipLoading=true;App.render();
+    App.tipLoading=true;render();
     getSessionTip(newStats,newScored.length,App.results.cfg?.type||'IPSC',App.results.cfg?.caliber||'9mm').then(t=>{
+      if(App.view!=='results')return; // don't clobber editor or other views
       if(t){App.tip=t;DB.updateTip(App.results.id,t);}
       App.setState({tipLoading:false});
     });
