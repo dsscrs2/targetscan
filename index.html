@@ -161,6 +161,7 @@ input[type=range]::-moz-range-thumb{width:26px;height:26px;border-radius:50%;bac
 .divider{height:1px;background:var(--border);margin:0}
 .tag{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:3px;font-family:var(--head);font-size:.5rem;letter-spacing:.08em}
 .shimmer{background:linear-gradient(90deg,var(--bg3) 25%,var(--bg4) 50%,var(--bg3) 75%);background-size:200% 100%;animation:shimmer 1.6s infinite}
+.dsdot.active{background:rgba(0,212,255,.18);box-shadow:0 0 8px rgba(0,212,255,.4)}
 </style>
 </head>
 <body>
@@ -261,47 +262,196 @@ function morph(bin,w,h,op,r){
   }
   return out;
 }
-function detectHoles(canvas){
-  const ctx=canvas.getContext('2d');
-  const{width:w,height:h}=canvas;
-  const d=ctx.getImageData(0,0,w,h).data;
-  const g=toGray(d,w,h);
-  let sum=0,sq=0;
-  for(const v of g){sum+=v;sq+=v*v;}
-  const mn=sum/(w*h),sd=Math.sqrt(Math.max(0,sq/(w*h)-mn*mn));
-  const thr=Math.max(32,Math.min(mn-sd*1.15,148));
-  let bin=new Uint8Array(w*h);
-  for(let i=0;i<g.length;i++)bin[i]=g[i]<thr?1:0;
-  bin=morph(morph(bin,w,h,'e',1),w,h,'d',3);
-  const vis=new Uint8Array(w*h),blobs=[];
-  for(let y=3;y<h-3;y++)for(let x=3;x<w-3;x++){
-    const i=y*w+x;
-    if(!bin[i]||vis[i])continue;
-    const stk=[i],px=[];vis[i]=1;
+// ── ADVANCED CV ENGINE — OpenCV-style pellet hole detection ──────
+// Separable Gaussian blur (fast O(n·r) per pixel)
+function gaussBlur(gray,w,h,sigma){
+  if(sigma<=0)return gray.slice();
+  const r=Math.max(1,Math.ceil(sigma*2.6));
+  const kern=new Float32Array(2*r+1);
+  let ks=0;
+  for(let i=0;i<=2*r;i++){kern[i]=Math.exp(-(i-r)*(i-r)/(2*sigma*sigma));ks+=kern[i];}
+  for(let i=0;i<=2*r;i++)kern[i]/=ks;
+  const tmp=new Float32Array(w*h),out=new Float32Array(w*h);
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+    let v=0,ws=0;
+    for(let k=0;k<=2*r;k++){const xx=Math.max(0,Math.min(w-1,x+(k-r)));v+=gray[y*w+xx]*kern[k];ws+=kern[k];}
+    tmp[y*w+x]=v/ws;
+  }
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+    let v=0,ws=0;
+    for(let k=0;k<=2*r;k++){const yy=Math.max(0,Math.min(h-1,y+(k-r)));v+=tmp[yy*w+x]*kern[k];ws+=kern[k];}
+    out[y*w+x]=v/ws;
+  }
+  return out;
+}
+// Integral image for O(1) area sums
+function buildIntegral(gray,w,h){
+  const I=new Float64Array((w+1)*(h+1));
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++)
+    I[(y+1)*(w+1)+(x+1)]=gray[y*w+x]+I[y*(w+1)+(x+1)]+I[(y+1)*(w+1)+x]-I[y*(w+1)+x];
+  return I;
+}
+function iSum(I,w,x1,y1,x2,y2){
+  return I[(y2+1)*(w+1)+(x2+1)]-I[y1*(w+1)+(x2+1)]-I[(y2+1)*(w+1)+x1]+I[y1*(w+1)+x1];
+}
+// Adaptive mean threshold (finds dark spots regardless of global illumination)
+function adaptiveThresh(gray,w,h,blockSz,C){
+  const r=Math.floor(blockSz/2);
+  const I=buildIntegral(gray,w,h);
+  const out=new Uint8Array(w*h);
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+    const x1=Math.max(0,x-r),y1=Math.max(0,y-r),x2=Math.min(w-1,x+r),y2=Math.min(h-1,y+r);
+    const area=(x2-x1+1)*(y2-y1+1);
+    out[y*w+x]=gray[y*w+x]<iSum(I,w,x1,y1,x2,y2)/area-C?1:0;
+  }
+  return out;
+}
+// Sobel edge magnitude
+function sobelMag(gray,w,h){
+  const mag=new Float32Array(w*h);
+  for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++){
+    const gx=-gray[(y-1)*w+x-1]-2*gray[y*w+x-1]-gray[(y+1)*w+x-1]
+             +gray[(y-1)*w+x+1]+2*gray[y*w+x+1]+gray[(y+1)*w+x+1];
+    const gy=-gray[(y-1)*w+x-1]-2*gray[(y-1)*w+x]-gray[(y-1)*w+x+1]
+             +gray[(y+1)*w+x-1]+2*gray[(y+1)*w+x]+gray[(y+1)*w+x+1];
+    mag[y*w+x]=Math.hypot(gx,gy);
+  }
+  return mag;
+}
+// BFS connected components — returns array of blob descriptors
+function connComponents(bin,w,h){
+  const vis=new Uint8Array(w*h);
+  const blobs=[];
+  const N4=[[-1,0],[1,0],[0,-1],[0,1]];
+  for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++){
+    const i0=y*w+x;
+    if(!bin[i0]||vis[i0])continue;
+    const stk=[i0],px=[];
+    vis[i0]=1;
+    let sx=0,sy=0,mnX=x,mxX=x,mnY=y,mxY=y;
     while(stk.length){
-      const c=stk.pop();px.push(c);
-      const cy=~~(c/w),cx=c%w;
-      for(const[dy,dx]of[[-1,0],[1,0],[0,-1],[0,1],[-1,-1],[-1,1],[1,-1],[1,1]]){
+      const i=stk.pop();px.push(i);
+      const cy=(i/w)|0,cx=i%w;
+      sx+=cx;sy+=cy;
+      mnX=Math.min(mnX,cx);mxX=Math.max(mxX,cx);
+      mnY=Math.min(mnY,cy);mxY=Math.max(mxY,cy);
+      for(const[dy,dx]of N4){
         const ny=cy+dy,nx=cx+dx;
-        if(ny<1||ny>=h-1||nx<1||nx>=w-1)continue;
+        if(ny<0||ny>=h||nx<0||nx>=w)continue;
         const ni=ny*w+nx;
         if(bin[ni]&&!vis[ni]){vis[ni]=1;stk.push(ni);}
       }
     }
-    if(px.length>=10&&px.length<=9000)blobs.push(px);
+    blobs.push({px,cx:sx/px.length,cy:sy/px.length,mnX,mxX,mnY,mxY,area:px.length});
   }
-  const holes=[];
-  for(const px of blobs){
-    let sx=0,sy=0,mnX=w,mxX=0,mnY=h,mxY=0;
-    for(const i of px){const y=~~(i/w),x=i%w;sx+=x;sy+=y;mnX=Math.min(mnX,x);mxX=Math.max(mxX,x);mnY=Math.min(mnY,y);mxY=Math.max(mxY,y);}
-    const cx=sx/px.length,cy=sy/px.length,ar=(mxX-mnX+1)/(mxY-mnY+1);
-    if(ar<0.22||ar>4.5)continue;
-    const r=Math.sqrt(px.length/Math.PI);
-    if(px.length/(Math.PI*r*r)<0.18)continue;
-    holes.push({cx,cy,radius:Math.max(r,5),area:px.length});
+  return blobs;
+}
+// Full detection pipeline — returns [{cx,cy,radius,confidence,source:'auto'}]
+function detectPelletHoles(canvas){
+  const ctx=canvas.getContext('2d');
+  const{width:w,height:h}=canvas;
+  const imgData=ctx.getImageData(0,0,w,h).data;
+
+  // 1 ── Grayscale
+  const gray=toGray(imgData,w,h);
+
+  // 2 ── Local contrast enhancement (CLAHE-like): subtract heavily-blurred bg
+  const bgSigma=Math.max(w,h)*0.038;
+  const bg=gaussBlur(gray,w,h,bgSigma);
+  const enhanced=new Float32Array(w*h);
+  for(let i=0;i<w*h;i++)enhanced[i]=Math.max(0,Math.min(255,128+(gray[i]-bg[i])*1.9));
+
+  // 3 ── Noise suppression
+  const smooth=gaussBlur(enhanced,w,h,1.1);
+
+  // 4 ── Expected pellet hole size in pixels
+  const targetR=Math.min(w,h)*0.47;
+  const pxMm=targetR/115;
+  const minR=Math.max(3,pxMm*1.5);   // ~1.5mm minimum
+  const maxR=pxMm*5.5;               // ~5.5mm maximum
+  const minArea=Math.PI*minR*minR*0.55;
+  const maxArea=Math.PI*maxR*maxR*2.8;
+
+  // 5 ── Adaptive threshold: dark spots on bright paper
+  const bsz=Math.max(15,Math.round(maxR*4.5)|1);   // block must be odd
+  const blockSz=bsz%2===0?bsz+1:bsz;
+  const binary=adaptiveThresh(smooth,w,h,blockSz,5);
+
+  // 6 ── Morphology: close small gaps, remove 1-px noise
+  let clean=morph(binary,w,h,'d',1);
+  clean=morph(clean,w,h,'e',1);
+
+  // 7 ── Connected components
+  const blobs=connComponents(clean,w,h);
+
+  // 8 ── Edge magnitudes for confidence scoring
+  const edges=sobelMag(gaussBlur(gray,w,h,1.4),w,h);
+
+  // 9 ── Filter & score each blob
+  const candidates=[];
+  for(const b of blobs){
+    if(b.area<minArea||b.area>maxArea)continue;
+    const bw=b.mxX-b.mnX+1,bh2=b.mxY-b.mnY+1;
+    const aspect=bw/bh2;
+    if(aspect<0.28||aspect>3.5)continue;
+
+    const radius=Math.sqrt(b.area/Math.PI);
+    if(radius<minR||radius>maxR*1.35)continue;
+
+    // Circularity = 4π·A / P²  (1.0 = perfect circle)
+    let perim=0;
+    for(const idx of b.px){
+      const py=(idx/w)|0,px2=idx%w;
+      for(const[dy,dx]of[[-1,0],[1,0],[0,-1],[0,1]]){
+        if(!clean[(py+dy)*w+(px2+dx)]){perim++;break;}
+      }
+    }
+    if(perim===0)continue;
+    const circ=(4*Math.PI*b.area)/(perim*perim);
+    if(circ<0.32)continue;
+
+    // Darkness contrast: inner vs annular surround
+    const ri=Math.ceil(radius*0.85),ro=Math.ceil(radius*2.0);
+    let inS=0,inC=0,outS=0,outC=0;
+    const x1=Math.max(0,~~(b.cx-ro)),x2=Math.min(w-1,~~(b.cx+ro));
+    const y1=Math.max(0,~~(b.cy-ro)),y2=Math.min(h-1,~~(b.cy+ro));
+    for(let iy=y1;iy<=y2;iy++)for(let ix=x1;ix<=x2;ix++){
+      const d=Math.hypot(ix-b.cx,iy-b.cy);
+      if(d<ri){inS+=gray[iy*w+ix];inC++;}
+      else if(d<ro&&d>radius*1.15){outS+=gray[iy*w+ix];outC++;}
+    }
+    if(!inC||!outC)continue;
+    const contrast=(outS/outC)-(inS/inC);
+    if(contrast<7)continue;
+
+    // Edge ring score: how much Sobel edge energy rings the blob perimeter
+    let edgeSum=0,edgeCnt=0;
+    const er=Math.ceil(radius*1.15);
+    for(let angle=0;angle<Math.PI*2;angle+=0.18){
+      const ex=~~(b.cx+er*Math.cos(angle)),ey=~~(b.cy+er*Math.sin(angle));
+      if(ex>=0&&ex<w&&ey>=0&&ey<h){edgeSum+=edges[ey*w+ex];edgeCnt++;}
+    }
+    const edgeScore=edgeCnt?Math.min(1,edgeSum/edgeCnt/55):0;
+
+    // Only keep detections inside the target area (generous margin)
+    const distFromCenter=Math.hypot(b.cx-w/2,b.cy-h/2);
+    if(distFromCenter>targetR*1.05)continue;
+
+    const circScore=Math.min(1,circ);
+    const contrastScore=Math.min(1,contrast/65);
+    const confidence=circScore*0.38+contrastScore*0.40+edgeScore*0.22;
+
+    candidates.push({cx:b.cx,cy:b.cy,radius:Math.max(4,radius),confidence,source:'auto'});
   }
+
+  // 10 ── NMS: keep highest-confidence when blobs overlap
+  candidates.sort((a,b2)=>b2.confidence-a.confidence);
   const kept=[];
-  for(const h2 of holes)if(kept.every(k=>Math.hypot(h2.cx-k.cx,h2.cy-k.cy)>16))kept.push(h2);
+  for(const c of candidates){
+    const minDist=Math.max(c.radius,kept[0]?.radius||0)*1.6;
+    if(kept.every(k=>Math.hypot(c.cx-k.cx,c.cy-k.cy)>Math.max(c.radius,k.radius)*1.55))
+      kept.push(c);
+  }
   return kept;
 }
 function scoreShots(holes,canvas,mode){
@@ -712,17 +862,55 @@ const App={
 const STEPS=['Loading image','Preprocessing (CLAHE)','Perspective alignment','Ring detection','Bullet detection','Calculating scores','Rendering overlay','AI coaching'];
 
 // ══════════════════════════════════════════════════════════════════
-//  PIPELINE — go straight to manual editor, no auto-detection
+//  PIPELINE — auto-detect then open editor for review/correction
 // ══════════════════════════════════════════════════════════════════
+const _tick=()=>new Promise(r=>setTimeout(r,18));
 async function runAnalysis(url){
   const img=await loadImg(url);
   Ed.init(url,[]);
   Ed.img=img;Ed.imgW=img.width;Ed.imgH=img.height;
-  // create a blank pending session (saved on apply)
   const id=Date.now();
   const session={id,cfg:{...App.cfg},scored:[],stats:null,overlayUrl:null,imgUrl:url,ts:new Date().toISOString(),tip:null,pending:true};
   App.results=session;
-  App.setState({view:'editor',tip:null,tipLoading:false,viewSession:null});
+  App.setState({view:'detecting',tip:null,tipLoading:false,viewSession:null});
+  // yield so detecting screen paints before heavy CV work
+  await _tick();
+  try{
+    const _setStatus=txt=>{const el=document.getElementById('det-status');if(el)el.textContent=txt;};
+    const _setStep=n=>{for(let i=1;i<=4;i++){const el=document.getElementById(`dstep-${i}`);if(el){el.style.color=i<n?'var(--green)':i===n?'var(--blue)':'var(--text4)';el.querySelector('.dsdot')?.classList.toggle('active',i===n);}}};
+
+    _setStep(1);_setStatus('Converting & enhancing contrast…');await _tick();
+    // Build detection canvas (max 920px for performance)
+    const detCanvas=toCanvas(img,920);
+    const scX=img.width/detCanvas.width,scY=img.height/detCanvas.height;
+
+    _setStep(2);_setStatus('Adaptive threshold & edge detection…');await _tick();
+    const detected=detectPelletHoles(detCanvas);
+
+    _setStep(3);_setStatus('Filtering & scoring candidates…');await _tick();
+    // Scale coords back to original image space
+    const shots=detected.map(d=>({
+      cx:d.cx*scX, cy:d.cy*scY,
+      radius:Math.max(4,d.radius*((scX+scY)/2)),
+      confidence:d.confidence, source:'auto'
+    }));
+
+    _setStep(4);_setStatus('Opening editor…');await _tick();
+    Ed.shots=shots;
+    App.detectedCount=shots.length;
+    App.setState({view:'editor'});
+    if(shots.length>0){
+      toast(`${shots.length} hole${shots.length!==1?'s':''} detected — review & adjust`);
+    } else {
+      toast('No holes detected — tap to place shots manually');
+    }
+  }catch(err){
+    console.error('Detection error:',err);
+    Ed.shots=[];
+    App.detectedCount=0;
+    App.setState({view:'editor'});
+    toast('Detection error — place shots manually');
+  }
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -1077,28 +1265,53 @@ const Ed={
         ctx.fillText(10-i+1,scx2,scy2-r*this.scale+fs*0.9);
       }
     }
-    // shots
+    // shots — cyan=auto-detected, red=manual, amber=selected
     this.shots.forEach((s,i)=>{
       const[sx,sy]=this.i2s(s.cx,s.cy);
       const r=Math.max(8,s.radius*this.scale);
       const sel=i===this.selected;
-      ctx.beginPath();ctx.arc(sx+2,sy+2,r,0,Math.PI*2);ctx.fillStyle='rgba(0,0,0,.3)';ctx.fill();
+      const isAuto=s.source==='auto';
+      // drop shadow
+      ctx.beginPath();ctx.arc(sx+2,sy+2,r,0,Math.PI*2);ctx.fillStyle='rgba(0,0,0,.35)';ctx.fill();
+      // fill
       ctx.beginPath();ctx.arc(sx,sy,r,0,Math.PI*2);
-      ctx.fillStyle=sel?'rgba(255,176,32,.88)':'rgba(220,38,52,.82)';ctx.fill();
-      ctx.strokeStyle=sel?'#FFD700':'rgba(255,255,255,.88)';ctx.lineWidth=sel?2.5:1.8;ctx.stroke();
+      if(sel) ctx.fillStyle='rgba(255,176,32,.9)';
+      else if(isAuto) ctx.fillStyle='rgba(0,190,255,.82)';
+      else ctx.fillStyle='rgba(220,38,52,.82)';
+      ctx.fill();
+      // stroke
+      ctx.strokeStyle=sel?'#FFD700':isAuto?'rgba(255,255,255,.85)':'rgba(255,255,255,.88)';
+      ctx.lineWidth=sel?2.5:1.8;ctx.stroke();
+      // confidence arc on auto shots (arc = confidence %)
+      if(isAuto&&!sel&&s.confidence!=null){
+        const conf=s.confidence;
+        const arcColor=conf>0.62?'rgba(0,255,136,.75)':conf>0.38?'rgba(255,176,32,.75)':'rgba(255,58,74,.7)';
+        ctx.beginPath();ctx.arc(sx,sy,r+5,-Math.PI/2,-Math.PI/2+Math.PI*2*conf);
+        ctx.strokeStyle=arcColor;ctx.lineWidth=2;ctx.stroke();
+      }
+      // selection ring
       if(sel){
         ctx.beginPath();ctx.arc(sx,sy,r+7,0,Math.PI*2);
         ctx.strokeStyle='rgba(255,215,0,.45)';ctx.lineWidth=1.5;
         ctx.setLineDash([5,4]);ctx.stroke();ctx.setLineDash([]);
       }
+      // label number
       const fs=Math.max(7,r*.82);
       ctx.font=`bold ${fs}px monospace`;ctx.textAlign='center';ctx.textBaseline='middle';
       ctx.fillStyle='#fff';ctx.fillText(i+1,sx,sy);
     });
     // zoom indicator
     const zi=document.getElementById('ed-zoom');if(zi)zi.textContent=Math.round(this.scale*100)+'%';
-    // shot count
+    // shot count badge
     const ci=document.getElementById('ed-count');if(ci)ci.textContent=this.shots.length;
+    // auto/manual badges
+    const autoN=this.shots.filter(s=>s.source==='auto').length;
+    const manN=this.shots.filter(s=>s.source!=='auto').length;
+    const ab=document.getElementById('ed-auto-badge');const mb=document.getElementById('ed-man-badge');
+    if(ab)ab.textContent=autoN+' AUTO';
+    if(mb)mb.textContent=manN+' MANUAL';
+    if(ab)ab.style.display=autoN>0?'':'none';
+    if(mb)mb.style.display=manN>0?'':'none';
     // delete button state
     const db=document.getElementById('ed-del');
     if(db){db.style.opacity=this.selected>=0?'1':'.3';db.style.pointerEvents=this.selected>=0?'auto':'none';}
@@ -1110,7 +1323,7 @@ const Ed={
   addShot(sx,sy){
     const[ix,iy]=this.s2i(sx,sy);
     if(ix<0||iy<0||ix>this.imgW||iy>this.imgH)return;
-    this.push();this.shots.push({cx:ix,cy:iy,radius:this.DEFAULT_R});
+    this.push();this.shots.push({cx:ix,cy:iy,radius:this.DEFAULT_R,source:'manual'});
     this.selected=this.shots.length-1;this.redraw();
   },
 };
@@ -1254,6 +1467,47 @@ function setupEditorEvents(){
 }
 
 // ══════════════════════════════════════════════════════════════════
+//  PAGE: DETECTING
+// ══════════════════════════════════════════════════════════════════
+function pgDetecting(){
+  const steps=[
+    [1,'Grayscale & contrast enhancement'],
+    [2,'Adaptive threshold & edge map'],
+    [3,'Blob analysis & circularity filter'],
+    [4,'Scoring & opening editor'],
+  ];
+  return`
+<div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 24px;background:var(--bg)">
+  <!-- Animated target icon with scan line -->
+  <div style="position:relative;width:136px;height:136px;margin-bottom:28px;flex-shrink:0">
+    ${App.imgUrl?`<img src="${App.imgUrl}" style="width:136px;height:136px;object-fit:cover;border-radius:10px;border:1px solid var(--border2);opacity:.75;display:block"/>`:''}
+    <div style="position:absolute;inset:0;border-radius:10px;overflow:hidden;pointer-events:none">
+      <div style="position:absolute;left:0;right:0;height:3px;background:linear-gradient(90deg,transparent 0%,var(--blue) 40%,rgba(0,212,255,0.9) 50%,var(--blue) 60%,transparent 100%);box-shadow:0 0 10px var(--blue);animation:scanline 1.6s ease-in-out infinite"></div>
+    </div>
+    <!-- Corner bracket marks -->
+    <div style="position:absolute;inset:0;pointer-events:none">
+      <svg width="136" height="136" fill="none" style="position:absolute;inset:0">
+        <path d="M8 24 L8 8 L24 8" stroke="var(--green)" stroke-width="2.5" stroke-linecap="round"/>
+        <path d="M112 8 L128 8 L128 24" stroke="var(--green)" stroke-width="2.5" stroke-linecap="round"/>
+        <path d="M8 112 L8 128 L24 128" stroke="var(--green)" stroke-width="2.5" stroke-linecap="round"/>
+        <path d="M128 112 L128 128 L112 128" stroke="var(--green)" stroke-width="2.5" stroke-linecap="round"/>
+      </svg>
+    </div>
+  </div>
+  <h2 style="font-family:var(--head);font-size:.88rem;letter-spacing:.22em;color:var(--text);margin-bottom:6px">DETECTING PELLET HOLES</h2>
+  <p id="det-status" style="font-family:var(--mono);font-size:.7rem;color:var(--blue);margin-bottom:28px;animation:pulse 1s ease-in-out infinite;text-align:center">Initializing CV pipeline…</p>
+  <!-- Step indicators -->
+  <div style="display:flex;flex-direction:column;gap:9px;width:100%;max-width:300px">
+    ${steps.map(([n,label])=>`
+    <div id="dstep-${n}" style="display:flex;align-items:center;gap:11px;color:var(--text4);transition:color .3s">
+      <div class="dsdot" style="width:22px;height:22px;border-radius:50%;border:1.5px solid currentColor;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-family:var(--head);font-size:.55rem;transition:all .3s">${n}</div>
+      <span style="font-family:var(--mono);font-size:.7rem">${label}</span>
+    </div>`).join('')}
+  </div>
+</div>`;
+}
+
+// ══════════════════════════════════════════════════════════════════
 //  PAGE: EDITOR
 // ══════════════════════════════════════════════════════════════════
 function pgEditor(){
@@ -1264,14 +1518,22 @@ function pgEditor(){
                 (window.screen.height>812?34:0);
   const cvH=Math.max(320,window.innerHeight-56-76-safeBot);
   const cvW=Math.min(500,window.innerWidth);
+  const autoN=Ed.shots.filter(s=>s.source==='auto').length;
+  const manN=Ed.shots.filter(s=>s.source!=='auto').length;
+  const detBadge=autoN>0
+    ?`<span style="font-family:var(--head);font-size:.52rem;letter-spacing:.08em;color:var(--blue);border:1px solid rgba(0,180,255,.4);border-radius:4px;padding:2px 7px">${autoN} AUTO</span>`:'';
+  const manBadge=manN>0
+    ?`<span style="font-family:var(--head);font-size:.52rem;letter-spacing:.08em;color:var(--red);border:1px solid rgba(255,58,74,.4);border-radius:4px;padding:2px 7px">${manN} MANUAL</span>`:'';
   return`
 <div style="display:flex;flex-direction:column;height:100vh;height:-webkit-fill-available;overflow:hidden">
   <!-- Header -->
   <div class="ph" style="flex-shrink:0">
     <button class="btn-icon btn" onclick="App.setState({view:App.results?.pending?'home':'results'})">${I.back}</button>
-    <span class="ph-title">MANUAL EDITOR</span>
-    <div style="display:flex;align-items:center;gap:10px">
-      <span id="ed-zoom" style="font-family:var(--mono);font-size:.75rem;color:var(--text3)">100%</span>
+    <span class="ph-title" style="font-size:.72rem">SHOT EDITOR</span>
+    <div style="display:flex;align-items:center;gap:6px">
+      ${autoN>0?`<span id="ed-auto-badge" style="font-family:var(--head);font-size:.52rem;letter-spacing:.08em;color:var(--blue);border:1px solid rgba(0,180,255,.4);border-radius:4px;padding:2px 7px">${autoN} AUTO</span>`:`<span id="ed-auto-badge" style="display:none;font-family:var(--head);font-size:.52rem;letter-spacing:.08em;color:var(--blue);border:1px solid rgba(0,180,255,.4);border-radius:4px;padding:2px 7px"></span>`}
+      ${manN>0?`<span id="ed-man-badge" style="font-family:var(--head);font-size:.52rem;letter-spacing:.08em;color:var(--red);border:1px solid rgba(255,58,74,.4);border-radius:4px;padding:2px 7px">${manN} MANUAL</span>`:`<span id="ed-man-badge" style="display:none;font-family:var(--head);font-size:.52rem;letter-spacing:.08em;color:var(--red);border:1px solid rgba(255,58,74,.4);border-radius:4px;padding:2px 7px"></span>`}
+      <span id="ed-zoom" style="font-family:var(--mono);font-size:.72rem;color:var(--text3)">100%</span>
       <div class="ed-badge green" id="ed-count" style="min-width:32px">${Ed.shots.length}</div>
     </div>
   </div>
@@ -1280,23 +1542,24 @@ function pgEditor(){
     <canvas id="ed-canvas" width="${Math.round(cvW*dpr)}" height="${Math.round(cvH*dpr)}" style="width:${cvW}px;height:${cvH}px;display:block"></canvas>
     <!-- Hint overlay -->
     <div id="ed-hint" class="ed-hint">
-      <div style="font-family:var(--head);font-size:.72rem;letter-spacing:.12em;color:var(--green);margin-bottom:10px">HOW TO EDIT</div>
-      <div style="color:var(--text2);font-size:.92rem;line-height:1.7;text-align:left">
-        <div style="margin-bottom:6px">📍 <strong>Tap empty area</strong> — add shot</div>
-        <div style="margin-bottom:6px">👆 <strong>Tap a shot</strong> — select it</div>
-        <div style="margin-bottom:6px">✋ <strong>Drag a shot</strong> — move it</div>
-        <div style="margin-bottom:6px">🤏 <strong>Pinch</strong> — zoom in/out</div>
-        <div>🖱️ <strong>Scroll wheel</strong> — zoom</div>
+      <div style="font-family:var(--head);font-size:.68rem;letter-spacing:.12em;color:var(--green);margin-bottom:10px">REVIEW & EDIT SHOTS</div>
+      <div style="color:var(--text2);font-size:.88rem;line-height:1.7;text-align:left">
+        <div style="margin-bottom:5px"><span style="color:var(--blue)">●</span> <strong>Cyan</strong> = auto-detected</div>
+        <div style="margin-bottom:8px"><span style="color:var(--red)">●</span> <strong>Red</strong> = manually placed</div>
+        <div style="margin-bottom:6px">📍 <strong>Tap empty</strong> — add shot</div>
+        <div style="margin-bottom:6px">👆 <strong>Tap shot</strong> — select</div>
+        <div style="margin-bottom:6px">✋ <strong>Drag shot</strong> — move</div>
+        <div>🤏 <strong>Pinch</strong> — zoom in/out</div>
       </div>
-      <div style="margin-top:12px;color:var(--text3);font-size:.8rem">Tap anywhere to dismiss</div>
+      <div style="margin-top:10px;color:var(--text3);font-size:.78rem">Tap anywhere to dismiss</div>
     </div>
   </div>
   <!-- Toolbar -->
   <div class="ed-toolbar">
-    <button class="btn btn-ghost" style="padding:12px 16px;font-size:.72rem" onclick="Ed.undo()">${I.undo} UNDO</button>
-    <button id="ed-del" class="btn btn-danger" style="padding:12px 16px;font-size:.72rem;opacity:.3;pointer-events:none" onclick="Ed.deleteSelected()">${I.trash} DELETE</button>
+    <button class="btn btn-ghost" style="padding:12px 14px;font-size:.72rem" onclick="Ed.undo()">${I.undo}</button>
+    <button id="ed-del" class="btn btn-danger" style="padding:12px 14px;font-size:.72rem;opacity:.3;pointer-events:none" onclick="Ed.deleteSelected()">${I.trash}</button>
     <div style="flex:1"></div>
-    <button class="btn btn-ghost" style="padding:12px 16px;font-size:.72rem" onclick="Ed.fit(${Math.round(cvW*dpr)},${Math.round(cvH*dpr)});Ed.redraw()">FIT</button>
+    <button class="btn btn-ghost" style="padding:12px 13px;font-size:.68rem" onclick="Ed.fit(${Math.round(cvW*dpr)},${Math.round(cvH*dpr)});Ed.redraw()">FIT</button>
     <button class="btn btn-primary" style="padding:12px 18px;font-size:.75rem" onclick="applyEdits()">
       ${I.ok}&nbsp; APPLY
     </button>
@@ -2021,6 +2284,7 @@ function render(){
   if(App.view==='home')       html=pgHome();
   else if(App.view==='camera')     html=pgCamera();
   else if(App.view==='configure')  html=pgConfigure();
+  else if(App.view==='detecting')  html=pgDetecting();
   else if(App.view==='processing') html=pgProcessing();
   else if(App.view==='results')    html=pgResults(App.viewSession||App.results);
   else if(App.view==='history')    html=pgHistory();
