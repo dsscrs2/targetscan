@@ -81,7 +81,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:26px;heigh
 input[type=range]::-moz-range-thumb{width:26px;height:26px;border-radius:50%;background:var(--green);cursor:pointer;border:2px solid var(--bg)}
 
 /* ── NAV ── */
-.bottom-nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:500px;background:rgba(8,12,24,.98);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-top:1px solid rgba(0,212,255,0.18);display:flex;z-index:300;padding-bottom:env(safe-area-inset-bottom,0)}
+.bottom-nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:500px;background:rgba(8,12,24,.98);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-top:1px solid rgba(0,212,255,0.18);display:flex;z-index:300;padding-bottom:env(safe-area-inset-bottom,0px)}
 .nav-btn{flex:1;min-height:56px;padding:10px 4px 12px;background:none;border:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;transition:color .2s;font-family:var(--head);font-size:.58rem;letter-spacing:.06em;font-weight:600;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
 .nav-btn.active{color:#fff}
 .nav-btn:not(.active){color:rgba(255,255,255,0.38)}
@@ -91,7 +91,7 @@ input[type=range]::-moz-range-thumb{width:26px;height:26px;border-radius:50%;bac
 .nav-active-bar{height:3px;background:var(--green);border-radius:2px;width:28px;margin-bottom:-4px;box-shadow:0 0 8px rgba(0,255,136,0.6)}
 
 /* ── PAGE HEADER ── */
-.ph{padding:0 16px;min-height:56px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--border);background:rgba(5,8,16,.92);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);position:sticky;top:0;z-index:200;padding-top:env(safe-area-inset-top,0)}
+.ph{padding:0 16px;min-height:56px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--border);background:rgba(5,8,16,.92);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);position:sticky;top:0;z-index:200;padding-top:env(safe-area-inset-top,0px)}
 .ph-title{font-family:var(--head);font-size:.82rem;letter-spacing:.18em;color:var(--text);flex:1}
 .ph-sub{font-family:var(--head);font-size:.62rem;letter-spacing:.1em;color:var(--text3)}
 
@@ -140,7 +140,6 @@ input[type=range]::-moz-range-thumb{width:26px;height:26px;border-radius:50%;bac
 
 /* ── EDITOR ── */
 #ed-canvas{display:block;touch-action:none;cursor:crosshair}
-.ed-toolbar{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:500px;background:rgba(5,8,16,.97);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-top:1px solid var(--border2);padding:10px 14px;padding-bottom:calc(10px + env(safe-area-inset-bottom,0));display:flex;align-items:center;gap:8px;z-index:300}
 .ed-badge{display:inline-flex;align-items:center;justify-content:center;min-width:28px;height:28px;border-radius:14px;background:var(--red-dim);border:1px solid var(--red);color:var(--red);font-family:var(--head);font-size:.68rem;padding:0 8px}
 .ed-badge.green{background:var(--green-dim);border-color:var(--green);color:var(--green)}
 .ed-hint{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(5,8,16,.92);border:1px solid var(--border2);border-radius:12px;padding:20px 24px;text-align:center;pointer-events:none;transition:opacity .4s;z-index:10;width:min(88vw,280px)}
@@ -200,8 +199,7 @@ function getPlatformInstallTip(){
   const isSafari=/Safari/.test(ua)&&!/Chrome|CriOS|FxiOS|EdgiOS/.test(ua);
   const isFirefox=/Firefox|FxiOS/.test(ua);
   const isEdge=/Edg\//.test(ua);
-  // On iOS, Chrome sends CriOS not Chrome; avoid false-positives from Safari's Chrome-like strings
-  const isChrome=isIOS?/CriOS/.test(ua):/Chrome|CrMOS/.test(ua)&&!/Edg\//.test(ua);
+  const isChrome=/Chrome|CrMOS|CriOS/.test(ua);
   const isStandalone=window.matchMedia('(display-mode: standalone)').matches||navigator.standalone;
   if(isStandalone)return{installed:true,text:'✅ Running as installed app — data is fully isolated.'};
   if(isIOS&&isSafari)return{text:'Safari → tap <strong style="color:var(--text)">Share ↑</strong> → <strong style="color:var(--text)">Add to Home Screen</strong>'};
@@ -216,16 +214,70 @@ function getPlatformInstallTip(){
   return{text:'Browser menu → <strong style="color:var(--text)">Add to Home Screen</strong> or <strong style="color:var(--text)">Install App</strong>'};
 }
 // ══════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════
+//  USERS — up to 5 shooter profiles, each fully isolated
+// ══════════════════════════════════════════════════════════════════
+const COLORS=['#00ff88','#00d4ff','#ffb020','#a855f7','#ff6b6b'];
+const Users={
+  K_ALL:'ts_users_v1',
+  K_CUR:'ts_active_user_v1',
+  MAX:5,
+  get all(){try{return JSON.parse(localStorage.getItem(this.K_ALL)||'[]')}catch{return[]}},
+  set all(v){localStorage.setItem(this.K_ALL,JSON.stringify(v))},
+  get currentId(){return localStorage.getItem(this.K_CUR)||null},
+  set currentId(id){localStorage.setItem(this.K_CUR,id)},
+  get current(){return this.all.find(u=>u.id===this.currentId)||null},
+  add(name){
+    const all=this.all;
+    if(all.length>=this.MAX)return null;
+    const id='u_'+Date.now();
+    const color=COLORS[all.length%COLORS.length];
+    const user={id,name:name.trim().slice(0,20),color,created:new Date().toISOString()};
+    all.push(user);this.all=all;
+    return user;
+  },
+  rename(id,name){const a=this.all;const i=a.findIndex(u=>u.id===id);if(i>=0){a[i].name=name.trim().slice(0,20);this.all=a;}},
+  del(id){
+    // wipe all data for this user
+    localStorage.removeItem('ts_sessions_'+id);
+    localStorage.removeItem('ts_prefs_'+id);
+    const a=this.all.filter(u=>u.id!==id);this.all=a;
+    if(this.currentId===id){this.currentId=a[0]?.id||'';}
+  },
+  switchTo(id){this.currentId=id;},
+  initDefault(){
+    // migrate any existing solo data to a default user
+    if(!this.all.length){
+      const u=this.add('Shooter 1');
+      if(u){
+        // migrate old keys if they exist
+        const oldS=localStorage.getItem('ts_sessions_v3');
+        const oldP=localStorage.getItem('ts_prefs_v2');
+        if(oldS)localStorage.setItem('ts_sessions_'+u.id,oldS);
+        if(oldP)localStorage.setItem('ts_prefs_'+u.id,oldP);
+        this.currentId=u.id;
+      }
+    } else if(!this.currentId||!this.all.find(u=>u.id===this.currentId)){
+      this.currentId=this.all[0].id;
+    }
+  }
+};
+Users.initDefault();
+
+// ══════════════════════════════════════════════════════════════════
+//  STORAGE  (user-scoped)
+// ══════════════════════════════════════════════════════════════════
 const DB={
-  K_S:'ts_sessions_v3',K_P:'ts_prefs_v2',
-  get sessions(){try{return JSON.parse(localStorage.getItem(this.K_S)||'[]')}catch{return[]}},
-  set sessions(v){localStorage.setItem(this.K_S,JSON.stringify(v.slice(0,200)))},
-  get prefs(){try{return JSON.parse(localStorage.getItem(this.K_P)||'{}')}catch{return{}}},
-  set prefs(v){localStorage.setItem(this.K_P,JSON.stringify(v))},
+  get _uid(){return Users.currentId||'default'},
+  get _ks(){return'ts_sessions_'+this._uid},
+  get _kp(){return'ts_prefs_'+this._uid},
+  get sessions(){try{return JSON.parse(localStorage.getItem(this._ks)||'[]')}catch{return[]}},
+  set sessions(v){localStorage.setItem(this._ks,JSON.stringify(v.slice(0,200)))},
+  get prefs(){try{return JSON.parse(localStorage.getItem(this._kp)||'{}')}catch{return{}}},
+  set prefs(v){localStorage.setItem(this._kp,JSON.stringify(v))},
   add(s){const a=this.sessions;a.unshift(s);this.sessions=a;},
   del(id){this.sessions=this.sessions.filter(s=>s.id!==id);},
-  updateTip(id,tip){const a=this.sessions;const i=a.findIndex(s=>s.id===id);if(i>=0){a[i].tip=tip;this.sessions=a;}},
-  clear(){localStorage.removeItem(this.K_S);}
+  clear(){localStorage.removeItem(this._ks);}
 };
 
 // ══════════════════════════════════════════════════════════════════
@@ -465,15 +517,12 @@ function buildHeatmap(sessions,size=200){
   let allShots=[];
   sessions.forEach(s=>{
     if(!s.scored||!s.stats)return;
-    const{pxMm,mpiX:_mx,mpiY:_my,mpiOffX,mpiOffY}=s.stats;
-    if(!pxMm)return;
-    // Reconstruct the image center from MPI position and its mm offset
-    const cx_img=_mx-mpiOffX*pxMm;
-    const cy_img=_my-mpiOffY*pxMm;
+    const scale=s.stats.pxMm||1;
+    const{mpiX:_mx,mpiY:_my}=s.stats;
     s.scored.forEach(sh=>{
-      // Convert shot from image pixel coords to mm offset from image center
-      const xMm=(sh.cx-cx_img)/pxMm;
-      const yMm=(sh.cy-cy_img)/pxMm;
+      // normalise shot coords to mm offset from center
+      const xMm=(sh.cx-(size/2))/((size*0.46)/115);
+      const yMm=(sh.cy-(size/2))/((size*0.46)/115);
       allShots.push({xMm,yMm,score:sh.score});
     });
   });
@@ -640,61 +689,7 @@ function drawMPIChart(canvasEl,sessions){
 // ══════════════════════════════════════════════════════════════════
 //  AI ANALYSIS
 // ══════════════════════════════════════════════════════════════════
-async function getSessionTip(stats,shots,type,caliber){
-  if(!stats||!shots)return null;
-  const prompt=`You are an expert ISSF air gun coach specialising in 0.177 (4.5mm) 10m Air Pistol and 10m Air Rifle. Give exactly 2 concise, specific coaching sentences based on this session:
-Shots fired: ${shots}
-Score: ${stats.totalScore}/${stats.maxScore} (${pct(stats.totalScore,stats.maxScore)}%)
-MPI offset: ${Math.abs(stats.mpiOffX).toFixed(1)}mm ${stats.mpiOffX>0?'right':'left'}, ${Math.abs(stats.mpiOffY).toFixed(1)}mm ${stats.mpiOffY>0?'low':'high'}
-Extreme spread (group size): ${stats.extremeSpreadMm.toFixed(1)}mm
-Mean radius: ${stats.meanRadMm.toFixed(1)}mm
-Discipline: ${type}
-Focus on air gun specific technique: hold area, trigger release, follow-through, natural point of aim, mental routine, pellet seating. Reference ISSF benchmarks where relevant (elite: ES <15mm, mean radius <6mm for 10m).`;
-  try{
-    const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',
-      headers:{'Content-Type':'application/json','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:130,messages:[{role:'user',content:prompt}]})});
-    const d=await r.json();return d.content?.[0]?.text||null;
-  }catch{return null;}
-}
 
-async function getMonthlyReport(sessions,months){
-  if(!sessions.length)return null;
-  const md=getMonthlyData(sessions);
-  const summary=md.map(m=>`${m.label}: ${m.sessions.length} sessions, avg score ${avg(m.scores).toFixed(1)}%, avg spread ${avg(m.spreads).toFixed(0)}mm`).join('\n');
-  const best=sessions.reduce((a,b)=>((b.stats?.totalScore||0)>(a.stats?.totalScore||0)?b:a));
-  const recent=sessions.slice(0,5);
-  const recentAvg=avg(recent.map(s=>pct(s.stats?.totalScore||0,s.stats?.maxScore||100)));
-  const overallAvg=avg(sessions.map(s=>pct(s.stats?.totalScore||0,s.stats?.maxScore||100)));
-  const improving=recentAvg>overallAvg;
-  const prompt=`You are a professional ISSF air gun coach writing a comprehensive progress report for a 0.177 (4.5mm) air gun shooter. Analyze this data:
-
-Total sessions: ${sessions.length} over ${months} month(s)
-Discipline: 10m Air Pistol / Air Rifle (0.177 caliber)
-Overall average: ${overallAvg.toFixed(1)}%
-Recent average (last 5): ${recentAvg.toFixed(1)}%
-Trend: ${improving?'IMPROVING':'DECLINING'}
-Best session: ${pct(best.stats?.totalScore||0,best.stats?.maxScore||100)}%
-
-Monthly breakdown:
-${summary}
-
-ISSF elite benchmarks for reference: group ES <15mm, mean radius <6mm, scores >95% consistently.
-
-Write a professional 4-paragraph ISSF air gun coaching report:
-1. Overall performance vs ISSF benchmarks
-2. Key strengths in technique or consistency
-3. Specific weaknesses (hold area, trigger, follow-through, mental game)
-4. Concrete drills and training plan for next period
-
-Be specific to air gun discipline, data-driven, and motivating. Professional ISSF coaching tone.`;
-  try{
-    const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',
-      headers:{'Content-Type':'application/json','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:600,messages:[{role:'user',content:prompt}]})});
-    const d=await r.json();return d.content?.[0]?.text||null;
-  }catch{return null;}
-}
 
 // ══════════════════════════════════════════════════════════════════
 //  APP STATE
@@ -702,14 +697,20 @@ Be specific to air gun discipline, data-driven, and motivating. Professional ISS
 const App={
   view:'home',imgUrl:null,stream:null,
   cfg:Object.assign({type:'AIR_PISTOL_10M',caliber:'.177 (4.5mm)',mode:'decimal',shots:10}, DB.prefs.cfg||{}),
-  procStep:0,results:null,tip:null,tipLoading:false,
+  procStep:0,results:null,
   viewSession:null,
-  reportLoading:false,reportText:null,
   setState(p){Object.assign(this,p);render();},
   saveCfg(){DB.prefs={...DB.prefs,cfg:{...this.cfg}};},
+  // called after switching user — reset all session state
+  switchUser(id){
+    Users.switchTo(id);
+    this.results=null;this.viewSession=null;this.imgUrl=null;
+    this.cfg=Object.assign({type:'AIR_PISTOL_10M',caliber:'.177 (4.5mm)',mode:'decimal',shots:10},DB.prefs.cfg||{});
+    this.setState({view:'home'});
+  },
   get sessions(){return DB.sessions;}
 };
-const STEPS=['Loading image','Preprocessing (CLAHE)','Perspective alignment','Ring detection','Bullet detection','Calculating scores','Rendering overlay','AI coaching'];
+const STEPS=['Loading image','Preprocessing','Perspective alignment','Ring detection','Bullet detection','Calculating scores','Rendering overlay'];
 
 // ══════════════════════════════════════════════════════════════════
 //  PIPELINE — go straight to manual editor, no auto-detection
@@ -720,9 +721,9 @@ async function runAnalysis(url){
   Ed.img=img;Ed.imgW=img.width;Ed.imgH=img.height;
   // create a blank pending session (saved on apply)
   const id=Date.now();
-  const session={id,cfg:{...App.cfg},scored:[],stats:null,overlayUrl:null,imgUrl:url,ts:new Date().toISOString(),tip:null,pending:true};
+  const session={id,cfg:{...App.cfg},scored:[],stats:null,overlayUrl:null,imgUrl:url,ts:new Date().toISOString(),pending:true};
   App.results=session;
-  App.setState({view:'editor',tip:null,tipLoading:false,viewSession:null});
+  App.setState({view:'editor',viewSession:null});
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -730,8 +731,8 @@ async function runAnalysis(url){
 // ══════════════════════════════════════════════════════════════════
 const I={
   back:`<svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="15 18 9 12 15 6"/></svg>`,
-  up:`<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>`,
-  cam:`<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>`,
+  up:`<svg width="19" height="19" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>`,
+  cam:`<svg width="19" height="19" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>`,
   scan:`<svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>`,
   chart:`<svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>`,
   hist:`<svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
@@ -751,14 +752,28 @@ const I={
 // ══════════════════════════════════════════════════════════════════
 //  PAGE: HOME
 // ══════════════════════════════════════════════════════════════════
+function avatar(u,size=34,fontSize='.82rem'){
+  const initials=u.name.split(' ').map(w=>w[0]||'').join('').slice(0,2).toUpperCase()||'?';
+  return`<div style="width:${size}px;height:${size}px;border-radius:50%;background:${u.color}22;border:2px solid ${u.color};display:flex;align-items:center;justify-content:center;font-family:var(--head);font-size:${fontSize};font-weight:700;color:${u.color};flex-shrink:0">${initials}</div>`;
+}
+
 function pgHome(){
   const s=DB.sessions,cnt=s.length;
   const best=cnt?Math.max(...s.filter(x=>x.stats).map(x=>pct(x.stats.totalScore,x.stats.maxScore))):null;
+  const cu=Users.current;
+  const allUsers=Users.all;
   return`
-<div class="scroll-page" style="min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:44px 24px calc(90px + env(safe-area-inset-bottom,0))">
-  <!-- Help button top-right -->
-  <div style="position:fixed;top:env(safe-area-inset-top,0);right:0;padding:10px 14px;z-index:250">
-    <button class="btn btn-icon" onclick="navTo('guide')" style="border-color:var(--border3);color:var(--text2)" title="How to use">
+<div class="scroll-page" style="min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:44px 24px calc(90px + env(safe-area-inset-bottom,0px))">
+  <!-- Top bar: user switcher + help -->
+  <div style="position:fixed;top:env(safe-area-inset-top,0px);left:0;right:0;max-width:500px;margin:0 auto;padding:8px 14px;display:flex;align-items:center;justify-content:space-between;z-index:250;pointer-events:none">
+    <!-- Current user pill -->
+    <button onclick="navTo('profiles')" style="pointer-events:auto;display:flex;align-items:center;gap:8px;background:rgba(8,12,24,.88);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid var(--border2);border-radius:24px;padding:5px 12px 5px 6px;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent">
+      ${cu?avatar(cu,28,'.72rem'):''}
+      <span style="font-family:var(--head);font-size:.6rem;letter-spacing:.1em;color:var(--text)">${cu?cu.name:'SELECT USER'}</span>
+      <svg width="12" height="12" fill="none" stroke="var(--text3)" stroke-width="2"><polyline points="2 5 6 9 10 5"/></svg>
+    </button>
+    <!-- Help button -->
+    <button class="btn btn-icon" onclick="navTo('guide')" style="pointer-events:auto;border-color:var(--border3);color:var(--text2);background:rgba(8,12,24,.88);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)" title="How to use">
       <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="9" r="8"/><path d="M9 13v-1"/><path d="M9 10c0-1.5 2-1.5 2-3a2 2 0 10-4 0"/></svg>
     </button>
   </div>
@@ -835,7 +850,7 @@ function pgConfigure(){
   const c=App.cfg;
   const sel=(k,v)=>c[k]===v?'on':'';
   return`
-<div class="scroll-page" style="min-height:100vh;padding-bottom:calc(90px + env(safe-area-inset-bottom,0))">
+<div class="scroll-page" style="min-height:100vh;padding-bottom:calc(90px + env(safe-area-inset-bottom,0px))">
   <div class="ph">
     <button class="btn-icon btn" onclick="App.setState({view:'home'})">${I.back}</button>
     <span class="ph-title">CONFIGURE ANALYSIS</span>
@@ -914,17 +929,16 @@ function pgProcessing(){
 function pgResults(r=App.results){
   if(!r)return`<div style="padding:80px 24px;text-align:center;color:var(--text3)">No results yet.</div>`;
   const{scored=[],stats,overlayUrl,cfg:rc={}}=r;
-  const tip=r===App.results?App.tip:r.tip;
-  const tipLoading=r===App.results&&App.tipLoading;
+  const isHistory=!!App.viewSession;
   const p=stats?pct(stats.totalScore,stats.maxScore):0;
   const sc=scoreColor(p);
   return`
-<div class="scroll-page" style="padding-bottom:calc(90px + env(safe-area-inset-bottom,0))">
+<div class="scroll-page" style="padding-bottom:calc(90px + env(safe-area-inset-bottom,0px))">
   <div class="ph">
     <button class="btn-icon btn" onclick="App.setState({view:App.viewSession?'history':'home',viewSession:null,results:App.viewSession?App.results:null})">${I.back}</button>
     <span class="ph-title">RESULTS</span>
-    <span class="ph-sub" style="flex:1">${rc.type||'IPSC'} · ${rc.caliber||'9mm'}</span>
-    <button class="btn btn-amber" style="padding:8px 13px;font-size:.6rem;font-weight:700" onclick="openEditor()">${I.edit} EDIT</button>
+    <span class="ph-sub" style="flex:1">${rc.type||''} · ${rc.caliber||''}</span>
+    ${!isHistory?`<button class="btn btn-amber" style="padding:8px 13px;font-size:.6rem;font-weight:700" onclick="openEditor()">${I.edit} EDIT</button>`:''}
   </div>
   <!-- Hero -->
   <div class="fade-up" style="padding:22px 20px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border)">
@@ -950,10 +964,10 @@ function pgResults(r=App.results){
        ['RADIUS',`${stats.meanRadMm.toFixed(1)}<span style="font-size:.55rem">mm</span>`]
     ].map(([l,v])=>`<div class="sbox" style="border-radius:0"><div class="sbox-lbl">${l}</div><div class="sbox-val" style="font-size:.92rem;color:var(--blue)">${v}</div></div>`).join('')}
   </div>`:''}
-  <!-- Overlay -->
+  <!-- Overlay (in-memory only — not stored in history) -->
   ${overlayUrl?`<div class="fade-up s1" style="border-bottom:1px solid var(--border)">
     <div style="padding:10px 16px;display:flex;align-items:center;justify-content:space-between">
-      <span style="font-family:var(--head);font-size:.52rem;letter-spacing:.12em;color:var(--text3)">SHOT OVERLAY · ${scored.length} DETECTED</span>
+      <span style="font-family:var(--head);font-size:.52rem;letter-spacing:.12em;color:var(--text3)">SHOT OVERLAY · ${scored.length} SHOTS</span>
       <div style="font-size:.6rem;color:var(--text4);display:flex;gap:10px">
         <span style="color:rgba(220,38,52,.8)">● shots</span>
         <span style="color:rgba(0,220,100,.8)">● rings</span>
@@ -962,18 +976,8 @@ function pgResults(r=App.results){
     </div>
     <img src="${overlayUrl}" style="width:100%;display:block;cursor:zoom-in" onclick="window.open(this.src)" title="Click to open full size"/>
   </div>`:''}
-  <!-- AI Tip -->
-  <div class="fade-up s2" style="padding:16px;border-bottom:1px solid var(--border)">
-    <div style="font-family:var(--head);font-size:.52rem;letter-spacing:.16em;color:var(--text3);margin-bottom:10px;display:flex;align-items:center;gap:6px">${I.bolt} AI COACHING</div>
-    ${tipLoading?`<div style="display:flex;gap:7px;align-items:center">
-      ${[0,.15,.3].map(d=>`<div style="width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulse .8s ${d}s infinite"></div>`).join('')}
-      <span style="color:var(--text3);font-size:.82rem;margin-left:4px">Analyzing your pattern…</span></div>`
-    :tip?`<p style="color:var(--text);font-size:.92rem;line-height:1.62;font-style:italic">${tip}</p>`
-    :scored.length===0?`<p style="color:var(--text3);font-size:.85rem">No bullet holes detected. Ensure the target is well-lit and fills most of the frame.</p>`
-    :`<p style="color:var(--text3);font-size:.82rem">Add an Anthropic API key in the code to enable AI coaching tips.</p>`}
-  </div>
   <!-- Shot Table -->
-  ${scored.length>0?`<div class="fade-up s3" style="border-bottom:1px solid var(--border)">
+  ${scored.length>0?`<div class="fade-up s2" style="border-bottom:1px solid var(--border)">
     <div style="padding:12px 16px;font-family:var(--head);font-size:.52rem;letter-spacing:.16em;color:var(--text3)">SHOT BREAKDOWN</div>
     <div style="overflow-x:auto">
       <table class="stbl">
@@ -987,18 +991,13 @@ function pgResults(r=App.results){
       </table>
     </div>
   </div>`:''}
-  <!-- Edit + Export -->
-  <div class="fade-up s4" style="padding:16px;display:flex;flex-direction:column;gap:10px">
-    <button class="btn btn-amber" style="width:100%;padding:14px;font-size:.72rem" onclick="openEditor()">
-      ${I.edit}&nbsp; EDIT SHOTS MANUALLY
-    </button>
-    <div style="display:flex;gap:10px">
-      <button class="btn btn-ghost" style="flex:1" onclick="dlImg('${overlayUrl||''}')">${I.dl} Share Image</button>
-      <button class="btn btn-ghost" style="flex:1" onclick="dlCSV()">${I.dl} Share CSV</button>
-    </div>
+  <!-- Export -->
+  <div class="fade-up s3" style="padding:16px;display:flex;gap:10px">
+    ${!isHistory?`<button class="btn btn-ghost" style="flex:1" onclick="dlImg('${overlayUrl||''}')">${I.dl} Share Image</button>`:''}
+    <button class="btn btn-ghost" style="flex:1" onclick="dlCSV()">${I.dl} Share CSV</button>
   </div>
-</div>`;
-}
+</div>`;}
+
 
 // ══════════════════════════════════════════════════════════════════
 //  MANUAL SHOT EDITOR ENGINE
@@ -1109,15 +1108,24 @@ const Ed={
     this.push();this.shots.push({cx:ix,cy:iy,radius:this.DEFAULT_R});
     this.selected=this.shots.length-1;this.redraw();
   },
+  zoomBy(factor){
+    const canvas=document.getElementById('ed-canvas');if(!canvas)return;
+    const dpr=this.dpr||1;
+    const cssW=canvas.width/dpr, cssH=canvas.height/dpr;
+    const cx=cssW/2, cy=cssH/2;
+    const ns=Math.max(this.MIN_SCALE,Math.min(this.MAX_SCALE,this.scale*factor));
+    this.tx=cx-(cx-this.tx)*(ns/this.scale);
+    this.ty=cy-(cy-this.ty)*(ns/this.scale);
+    this.scale=ns;this.clamp(canvas.width,canvas.height);this.redraw();
+  },
+  fitToView(){
+    const canvas=document.getElementById('ed-canvas');if(!canvas)return;
+    this.fit(canvas.width,canvas.height);this.redraw();
+  },
 };
 
-let _editorEventsController=null;
 function setupEditorEvents(){
   const canvas=document.getElementById('ed-canvas');if(!canvas)return;
-  // Abort any previous listeners on an old canvas to prevent stacking
-  if(_editorEventsController){_editorEventsController.abort();}
-  _editorEventsController=new AbortController();
-  const sig={signal:_editorEventsController.signal};
   const rect=()=>canvas.getBoundingClientRect();
   // CSS pixel coords — consistent with redraw's setTransform(dpr,...) drawing space
   const pos=(e)=>{const r=rect();return[e.clientX-r.left,e.clientY-r.top];};
@@ -1135,7 +1143,7 @@ function setupEditorEvents(){
       Ed.dragOffX=sx-scx;Ed.dragOffY=sy-scy;Ed.redraw();}
     else{Ed.isPan=true;Ed.selected=-1;Ed.panStartX=sx;Ed.panStartY=sy;Ed.panTx0=Ed.tx;Ed.panTy0=Ed.ty;Ed.hasMoved=false;Ed.redraw();}
     e.preventDefault();
-  },sig);
+  });
   canvas.addEventListener('mousemove',e=>{
     const[sx,sy]=pos(e);
     if(Ed.isDrag&&Ed.dragIdx>=0){
@@ -1150,7 +1158,7 @@ function setupEditorEvents(){
       Ed.clamp(canvas.width,canvas.height);Ed.redraw();
     }
     e.preventDefault();
-  },sig);
+  });
   canvas.addEventListener('mouseup',e=>{
     const[sx,sy]=pos(e);
     if(Ed.isDrag){
@@ -1164,7 +1172,7 @@ function setupEditorEvents(){
       }
     }
     e.preventDefault();
-  },sig);
+  });
 
   // ── TOUCH ──
   canvas.addEventListener('touchstart',e=>{
@@ -1172,11 +1180,14 @@ function setupEditorEvents(){
     e.preventDefault();
     const r=rect(),ts=[...e.touches];
     Ed.touches=ts;
+
     if(ts.length===1){
+      // always reset any leftover pinch/drag state cleanly
+      Ed.isDrag=false;Ed.dragIdx=-1;Ed.pinchDist0=0;
       const[sx,sy]=tpos(ts[0],r);
       const hi=Ed.hit(sx,sy);
       if(hi>=0){
-        Ed.selected=hi;Ed.dragIdx=hi;Ed.isDrag=true;Ed.hasMoved=false;
+        Ed.selected=hi;Ed.dragIdx=hi;Ed.isDrag=true;Ed.isPan=false;Ed.hasMoved=false;
         Ed.dragOffX=sx-Ed.i2s(Ed.shots[hi].cx,Ed.shots[hi].cy)[0];
         Ed.dragOffY=sy-Ed.i2s(Ed.shots[hi].cx,Ed.shots[hi].cy)[1];
         Ed.redraw();
@@ -1186,16 +1197,19 @@ function setupEditorEvents(){
         Ed.redraw();
       }
     } else if(ts.length===2){
-      Ed.isDrag=false;Ed.isPan=false;
+      // entering pinch — cancel any single-finger state
+      Ed.isDrag=false;Ed.isPan=false;Ed.dragIdx=-1;Ed.hasMoved=false;
       Ed.pinchDist0=pdist(ts);Ed.pinchScale0=Ed.scale;
-      const[mx,my]=pmid(ts,r);Ed.panStartX=mx;Ed.panStartY=my;
+      const[mx,my]=pmid(ts,r);
+      Ed.panStartX=mx;Ed.panStartY=my;
       Ed.pinchTx0=Ed.tx;Ed.pinchTy0=Ed.ty;
     }
-  },{passive:false,...sig});
+  },{passive:false});
 
   canvas.addEventListener('touchmove',e=>{
     e.preventDefault();
     const r=rect(),ts=[...e.touches];
+
     if(ts.length===1&&Ed.isDrag&&Ed.dragIdx>=0){
       Ed.hasMoved=true;
       const[sx,sy]=tpos(ts[0],r);
@@ -1207,27 +1221,25 @@ function setupEditorEvents(){
       const[sx,sy]=tpos(ts[0],r);
       Ed.tx=Ed.panTx0+(sx-Ed.panStartX);Ed.ty=Ed.panTy0+(sy-Ed.panStartY);
       Ed.clamp(canvas.width,canvas.height);Ed.redraw();
-    } else if(ts.length===2){
+    } else if(ts.length===2&&Ed.pinchDist0>0){
       const nd=pdist(ts),ns=Math.max(Ed.MIN_SCALE,Math.min(Ed.MAX_SCALE,Ed.pinchScale0*(nd/Ed.pinchDist0)));
       const[mx,my]=pmid(ts,r);
-      // zoom around pinch midpoint
-      Ed.tx=mx-(mx-Ed.pinchTx0)*(ns/Ed.pinchScale0);
-      Ed.ty=my-(my-Ed.pinchTy0)*(ns/Ed.pinchScale0);
-      // also pan with midpoint movement
-      Ed.tx+=mx-Ed.panStartX;Ed.ty+=my-Ed.panStartY;
+      Ed.tx=mx-(mx-Ed.pinchTx0)*(ns/Ed.pinchScale0)+(mx-Ed.panStartX);
+      Ed.ty=my-(my-Ed.pinchTy0)*(ns/Ed.pinchScale0)+(my-Ed.panStartY);
       Ed.scale=ns;Ed.clamp(canvas.width,canvas.height);Ed.redraw();
     }
-  },{passive:false,...sig});
+  },{passive:false});
 
   canvas.addEventListener('touchend',e=>{
     e.preventDefault();
     const r=rect();
+    const remaining=[...e.touches];
+
     if(Ed.isDrag){
       if(!Ed.hasMoved){Ed.selected=Ed.dragIdx;Ed.redraw();}
       else Ed.push();
       Ed.isDrag=false;Ed.dragIdx=-1;
     } else if(Ed.isPan&&!Ed.hasMoved){
-      // tap on empty space → add shot
       if(e.changedTouches.length){
         const[sx,sy]=tpos(e.changedTouches[0],r);
         Ed.addShot(sx,sy);
@@ -1235,10 +1247,23 @@ function setupEditorEvents(){
       Ed.isPan=false;
     } else {
       Ed.isPan=false;Ed.isDrag=false;
-      // reset pinch state
-      if([...e.touches].length===0){Ed.pinchDist0=0;}
     }
-  },{passive:false,...sig});
+
+    // KEY FIX: after a pinch (2→1 finger), restart pan with the remaining finger
+    // so the canvas doesn't get stuck after zooming
+    if(remaining.length===1){
+      const[sx,sy]=tpos(remaining[0],r);
+      Ed.isPan=true;Ed.isDrag=false;Ed.dragIdx=-1;
+      Ed.panStartX=sx;Ed.panStartY=sy;Ed.panTx0=Ed.tx;Ed.panTy0=Ed.ty;Ed.hasMoved=false;
+      Ed.pinchDist0=0;
+    } else if(remaining.length===0){
+      Ed.pinchDist0=0;Ed.hasMoved=false;
+    }
+  },{passive:false});
+
+  canvas.addEventListener('touchcancel',e=>{
+    Ed.isDrag=false;Ed.isPan=false;Ed.dragIdx=-1;Ed.pinchDist0=0;Ed.hasMoved=false;
+  },{passive:false});
 
   // Mouse wheel zoom
   canvas.addEventListener('wheel',e=>{
@@ -1249,53 +1274,69 @@ function setupEditorEvents(){
     Ed.tx=sx-(sx-Ed.tx)*(ns/Ed.scale);
     Ed.ty=sy-(sy-Ed.ty)*(ns/Ed.scale);
     Ed.scale=ns;Ed.clamp(canvas.width,canvas.height);Ed.redraw();
-  },{passive:false,...sig});
+  },{passive:false});
+
+  // Cancel drag/pan if mouse leaves canvas — prevents stuck state on PC
+  canvas.addEventListener('mouseleave',()=>{
+    if(Ed.isDrag){Ed.isDrag=false;Ed.dragIdx=-1;Ed.push();}
+    if(Ed.isPan){Ed.isPan=false;}
+  });
+
+  // Keyboard shortcuts for PC users
+  const keyHandler=e=>{
+    if(App.view!=='editor')return;
+    if(e.key==='='||e.key==='+'||e.key==='+')Ed.zoomBy(1.2);
+    else if(e.key==='-'||e.key==='_')Ed.zoomBy(0.83);
+    else if(e.key==='0'||e.key==='r'||e.key==='R')Ed.fitToView();
+    else if(e.key==='z'&&(e.ctrlKey||e.metaKey)){e.preventDefault();Ed.undo();}
+    else if(e.key==='Delete'||e.key==='Backspace')Ed.deleteSelected();
+  };
+  document.removeEventListener('keydown',window._edKeyHandler||null);
+  window._edKeyHandler=keyHandler;
+  document.addEventListener('keydown',keyHandler);
 }
 
 // ══════════════════════════════════════════════════════════════════
 //  PAGE: EDITOR
 // ══════════════════════════════════════════════════════════════════
 function pgEditor(){
-  const dpr=window.devicePixelRatio||1;
-  Ed.dpr=dpr;
-  // measure actual safe-area-aware toolbar height
-  const navH=Math.round(56+20+(window.screen.height>812?34:0)); // header + toolbar + possible home indicator
-  const cvH=Math.max(320,window.innerHeight-navH);
-  const cvW=Math.min(500,window.innerWidth);
   return`
-<div style="display:flex;flex-direction:column;height:100vh;height:-webkit-fill-available;overflow:hidden">
+<div id="ed-root" style="position:fixed;top:0;left:0;right:0;bottom:0;display:flex;flex-direction:column;background:#050810;max-width:500px;margin:0 auto;z-index:400">
   <!-- Header -->
-  <div class="ph" style="flex-shrink:0">
-    <button class="btn-icon btn" onclick="handleEditorBack()">${I.back}</button>
+  <div class="ph" style="flex-shrink:0;padding-top:env(safe-area-inset-top,0px)">
+    <button class="btn-icon btn" onclick="if(App.results?.pending){if(App.imgUrl&&App.imgUrl.startsWith('blob:')){URL.revokeObjectURL(App.imgUrl);App.imgUrl=null;}Ed.img=null;App.results=null;App.setState({view:'home'});}else{App.setState({view:'results'})}">${I.back}</button>
     <span class="ph-title">MANUAL EDITOR</span>
     <div style="display:flex;align-items:center;gap:10px">
       <span id="ed-zoom" style="font-family:var(--mono);font-size:.75rem;color:var(--text3)">100%</span>
       <div class="ed-badge green" id="ed-count" style="min-width:32px">${Ed.shots.length}</div>
     </div>
   </div>
-  <!-- Canvas wrap -->
-  <div style="flex:1;position:relative;overflow:hidden;background:#050810">
-    <canvas id="ed-canvas" width="${Math.round(cvW*dpr)}" height="${Math.round(cvH*dpr)}" style="width:${cvW}px;height:${cvH}px;display:block"></canvas>
-    <!-- Hint overlay -->
+  <!-- Canvas area fills all remaining space -->
+  <div id="ed-wrap" style="flex:1;position:relative;overflow:hidden;background:#050810;min-height:0">
+    <canvas id="ed-canvas" style="display:block;touch-action:none;cursor:crosshair"></canvas>
     <div id="ed-hint" class="ed-hint">
       <div style="font-family:var(--head);font-size:.72rem;letter-spacing:.12em;color:var(--green);margin-bottom:10px">HOW TO EDIT</div>
       <div style="color:var(--text2);font-size:.92rem;line-height:1.7;text-align:left">
-        <div style="margin-bottom:6px">📍 <strong>Tap empty area</strong> — add shot</div>
-        <div style="margin-bottom:6px">👆 <strong>Tap a shot</strong> — select it</div>
-        <div style="margin-bottom:6px">✋ <strong>Drag a shot</strong> — move it</div>
+        <div style="margin-bottom:6px">📍 <strong>Tap/click empty</strong> — add shot</div>
+        <div style="margin-bottom:6px">👆 <strong>Tap a shot</strong> — select</div>
+        <div style="margin-bottom:6px">✋ <strong>Drag</strong> — move shot</div>
         <div style="margin-bottom:6px">🤏 <strong>Pinch</strong> — zoom in/out</div>
-        <div>🖱️ <strong>Scroll wheel</strong> — zoom</div>
+        <div>🖱️ <strong>Scroll wheel / + − buttons</strong> — zoom</div>
       </div>
       <div style="margin-top:12px;color:var(--text3);font-size:.8rem">Tap anywhere to dismiss</div>
     </div>
   </div>
-  <!-- Toolbar -->
-  <div class="ed-toolbar" style="flex-shrink:0">
-    <button class="btn btn-ghost" style="padding:12px 16px;font-size:.72rem" onclick="Ed.undo()">${I.undo} UNDO</button>
-    <button id="ed-del" class="btn btn-danger" style="padding:12px 16px;font-size:.72rem;opacity:.3;pointer-events:none" onclick="Ed.deleteSelected()">${I.trash} DELETE</button>
+  <!-- Toolbar — flex item, never clipped, always reachable -->
+  <div id="ed-toolbar" style="flex-shrink:0;background:rgba(5,8,16,.97);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-top:1px solid var(--border2);padding:8px 12px;padding-bottom:calc(8px + env(safe-area-inset-bottom,0px));display:flex;align-items:center;gap:6px;z-index:401">
+    <button class="btn btn-ghost" style="padding:10px 12px;font-size:.7rem;min-height:44px" onclick="Ed.undo()">${I.undo} UNDO</button>
+    <button id="ed-del" class="btn btn-danger" style="padding:10px 12px;font-size:.7rem;opacity:.3;pointer-events:none;min-height:44px" onclick="Ed.deleteSelected()">${I.trash} DEL</button>
+    <div style="display:flex;align-items:center;gap:2px;background:var(--bg2);border:1px solid var(--border2);border-radius:6px;padding:3px">
+      <button ontouchend="event.preventDefault();Ed.zoomBy(0.72)" onclick="Ed.zoomBy(0.72)" style="background:none;border:none;cursor:pointer;width:36px;height:36px;color:var(--text2);font-size:1.2rem;display:flex;align-items:center;justify-content:center;border-radius:4px;touch-action:manipulation;-webkit-tap-highlight-color:transparent">−</button>
+      <button ontouchend="event.preventDefault();Ed.fitToView()" onclick="Ed.fitToView()" style="background:none;border:none;cursor:pointer;padding:0 8px;height:36px;color:var(--text3);font-family:var(--mono);font-size:.65rem;display:flex;align-items:center;border-radius:4px;touch-action:manipulation;-webkit-tap-highlight-color:transparent;min-width:36px;justify-content:center">FIT</button>
+      <button ontouchend="event.preventDefault();Ed.zoomBy(1.38)" onclick="Ed.zoomBy(1.38)" style="background:none;border:none;cursor:pointer;width:36px;height:36px;color:var(--text2);font-size:1.2rem;display:flex;align-items:center;justify-content:center;border-radius:4px;touch-action:manipulation;-webkit-tap-highlight-color:transparent">+</button>
+    </div>
     <div style="flex:1"></div>
-    <button class="btn btn-ghost" style="padding:12px 16px;font-size:.72rem" onclick="(function(){const c=document.getElementById('ed-canvas');Ed.fit(c.width,c.height);Ed.redraw();})()">FIT</button>
-    <button class="btn btn-primary" style="padding:12px 18px;font-size:.75rem" onclick="applyEdits()">
+    <button class="btn btn-primary" style="padding:10px 16px;font-size:.75rem;min-height:44px" ontouchend="event.preventDefault();applyEdits()" onclick="applyEdits()">
       ${I.ok}&nbsp; APPLY
     </button>
   </div>
@@ -1308,7 +1349,7 @@ function pgEditor(){
 function pgHistory(){
   const s=DB.sessions;
   return`
-<div class="scroll-page" style="padding-bottom:calc(90px + env(safe-area-inset-bottom,0))">
+<div class="scroll-page" style="padding-bottom:calc(90px + env(safe-area-inset-bottom,0px))">
   <div class="ph">
     <span class="ph-title">HISTORY</span>
     ${s.length?`<button class="btn btn-danger" onclick="confirmClear()" style="font-size:.58rem">CLEAR ALL</button>`:''}
@@ -1343,7 +1384,7 @@ function pgHistory(){
 function pgProgress(){
   const ss=DB.sessions.filter(s=>s.stats&&s.scored?.length>0);
   if(ss.length<2)return`
-<div class="scroll-page" style="padding-bottom:calc(90px + env(safe-area-inset-bottom,0))">
+<div class="scroll-page" style="padding-bottom:calc(90px + env(safe-area-inset-bottom,0px))">
   <div class="ph"><span class="ph-title">PROGRESS</span></div>
   <div style="padding:80px 24px;text-align:center;color:var(--text3)">
     <p style="font-size:.95rem">Analyze at least 2 sessions to view progress charts.</p>
@@ -1358,7 +1399,7 @@ function pgProgress(){
   const trendUp=trend>overallAvg;
   const heatUrl=buildHeatmap(ss,220);
   return`
-<div class="scroll-page" style="padding-bottom:calc(90px + env(safe-area-inset-bottom,0))">
+<div class="scroll-page" style="padding-bottom:calc(90px + env(safe-area-inset-bottom,0px))">
   <div class="ph"><span class="ph-title">PROGRESS CHARTS</span><span class="ph-sub">${ss.length} SESSIONS</span></div>
 
   <!-- KPI row -->
@@ -1467,7 +1508,7 @@ function buildPBRows(ss){
 function pgReport(){
   const ss=DB.sessions.filter(s=>s.stats&&s.scored?.length>0);
   if(ss.length<3)return`
-<div class="scroll-page" style="padding-bottom:calc(90px + env(safe-area-inset-bottom,0))">
+<div class="scroll-page" style="padding-bottom:calc(90px + env(safe-area-inset-bottom,0px))">
   <div class="ph"><span class="ph-title">PROGRESS REPORT</span></div>
   <div style="padding:80px 24px;text-align:center;color:var(--text3)">
     <p style="font-size:.95rem">Analyze at least 3 sessions to generate a progress report.</p>
@@ -1493,24 +1534,10 @@ function pgReport(){
   const cfg=ss[0]?.cfg||{};
 
   return`
-<div class="scroll-page" style="padding-bottom:calc(90px + env(safe-area-inset-bottom,0))">
+<div class="scroll-page" style="padding-bottom:calc(90px + env(safe-area-inset-bottom,0px))">
   <div class="ph">
     <span class="ph-title">PROGRESS REPORT</span>
     <button class="btn btn-ghost no-print" style="font-size:.6rem;padding:7px 12px" onclick="printReport()">${I.print} PRINT</button>
-  </div>
-
-  <!-- Generate AI report button -->
-  <div class="no-print" style="padding:14px 16px;border-bottom:1px solid var(--border);background:var(--bg2)">
-    <button class="btn btn-primary" style="width:100%;padding:14px;font-size:.72rem" onclick="genAIReport(${ss.length})">
-      ${I.bolt}&nbsp; GENERATE AI COMPREHENSIVE REPORT
-    </button>
-    <p style="color:var(--text3);font-size:.72rem;text-align:center;margin-top:8px">Requires Anthropic API key in the code</p>
-  </div>
-
-  <!-- AI Report text area -->
-  <div id="ai-report-wrap" style="display:none;padding:0 16px 0;border-bottom:1px solid var(--border)">
-    <div style="padding:14px 0 10px;font-family:var(--head);font-size:.55rem;letter-spacing:.16em;color:var(--green)">AI COACH REPORT</div>
-    <div id="ai-report-text" style="color:var(--text);font-size:.9rem;line-height:1.7;padding-bottom:16px"></div>
   </div>
 
   <!-- ═══ PROFESSIONAL REPORT ═══ -->
@@ -1811,59 +1838,172 @@ function pgCamera(){
 }
 
 // ══════════════════════════════════════════════════════════════════
-//  PAGE: HOW TO USE
+//  PAGE: SHOOTER PROFILES
+// ══════════════════════════════════════════════════════════════════
+function pgProfiles(){
+  const users=Users.all;
+  const cu=Users.currentId;
+  return`
+<div class="scroll-page" style="padding-bottom:calc(90px + env(safe-area-inset-bottom,0px))">
+  <div class="ph">
+    <button class="btn-icon btn" onclick="navTo('home')">${I.back}</button>
+    <span class="ph-title">SHOOTER PROFILES</span>
+    <span class="ph-sub">${users.length}/${Users.MAX} SLOTS</span>
+  </div>
+
+  <!-- Profiles list -->
+  <div style="padding:14px 16px;display:flex;flex-direction:column;gap:10px">
+    ${users.map(u=>{
+      const isCurrent=u.id===cu;
+      const uSessions=JSON.parse(localStorage.getItem('ts_sessions_'+u.id)||'[]');
+      const cnt=uSessions.length;
+      const scored=uSessions.filter(s=>s.stats);
+      const best=scored.length?Math.max(...scored.map(s=>pct(s.stats.totalScore,s.stats.maxScore))):null;
+      return`
+      <div style="background:${isCurrent?'rgba(0,255,136,0.05)':'var(--bg2)'};border:${isCurrent?'1.5px solid var(--green)':'1px solid var(--border2)'};border-radius:var(--r);overflow:hidden">
+        <!-- Profile header row -->
+        <div style="display:flex;align-items:center;gap:12px;padding:14px 16px">
+          ${avatar(u,44,'.9rem')}
+          <div style="flex:1;min-width:0">
+            <div style="display:flex;align-items:center;gap:7px;margin-bottom:3px">
+              <span style="font-family:var(--head);font-size:.78rem;letter-spacing:.1em;color:${isCurrent?'var(--green)':'var(--text)'}">${u.name}</span>
+              ${isCurrent?`<span style="font-family:var(--head);font-size:.48rem;letter-spacing:.12em;padding:2px 7px;border-radius:3px;background:var(--green-dim);color:var(--green);border:1px solid rgba(0,255,136,.3)">ACTIVE</span>`:''}
+            </div>
+            <div style="font-family:var(--mono);font-size:.72rem;color:var(--text3)">${cnt} session${cnt!==1?'s':''} · ${best!==null?'Best: '+best+'%':'no scores yet'}</div>
+          </div>
+          ${!isCurrent?`<button class="btn btn-primary" style="padding:9px 14px;font-size:.65rem;flex-shrink:0" onclick="switchToUser('${u.id}')">SWITCH</button>`:''}
+        </div>
+        <!-- Action row -->
+        <div style="display:flex;border-top:1px solid ${isCurrent?'rgba(0,255,136,0.15)':'var(--border)'};background:rgba(0,0,0,.15)">
+          <button onclick="renameUser('${u.id}','${u.name.replace(/'/g,"\\'")}')" style="flex:1;padding:10px;background:none;border:none;border-right:1px solid var(--border);cursor:pointer;font-family:var(--head);font-size:.58rem;letter-spacing:.1em;color:var(--text2);touch-action:manipulation;min-height:44px">✏️ RENAME</button>
+          <button onclick="exportUserData('${u.id}','${u.name.replace(/'/g,"\\'")}')" style="flex:1;padding:10px;background:none;border:none;border-right:1px solid var(--border);cursor:pointer;font-family:var(--head);font-size:.58rem;letter-spacing:.1em;color:var(--text2);touch-action:manipulation;min-height:44px">💾 BACKUP</button>
+          ${users.length>1?`<button onclick="deleteUser('${u.id}','${u.name.replace(/'/g,"\\'")}')" style="flex:1;padding:10px;background:none;border:none;cursor:pointer;font-family:var(--head);font-size:.58rem;letter-spacing:.1em;color:var(--red);touch-action:manipulation;min-height:44px">🗑 DELETE</button>`:`<div style="flex:1;padding:10px;display:flex;align-items:center;justify-content:center;font-family:var(--head);font-size:.52rem;letter-spacing:.08em;color:var(--text4)">LAST USER</div>`}
+        </div>
+      </div>`;
+    }).join('')}
+
+    <!-- Add new profile -->
+    ${users.length<Users.MAX?`
+    <button onclick="addUser()" class="btn btn-ghost" style="width:100%;padding:16px;font-size:.72rem;border-style:dashed;margin-top:4px">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="8" y1="2" x2="8" y2="14"/><line x1="2" y1="8" x2="14" y2="8"/></svg>
+      ADD SHOOTER PROFILE
+    </button>`:`
+    <div style="text-align:center;padding:14px;color:var(--text3);font-family:var(--mono);font-size:.72rem">Maximum ${Users.MAX} profiles reached</div>`}
+  </div>
+
+  <!-- Import backup for any user -->
+  <div style="margin:6px 16px 0;padding:14px;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r)">
+    <div style="font-family:var(--head);font-size:.58rem;letter-spacing:.14em;color:var(--text3);margin-bottom:10px">RESTORE FROM BACKUP FILE</div>
+    <button class="btn btn-ghost" style="width:100%;font-size:.72rem;padding:12px" onclick="importData()">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 10V2M4 5l3-3 3 3"/><path d="M2 11v1a1 1 0 001 1h8a1 1 0 001-1v-1"/></svg>
+      RESTORE BACKUP INTO CURRENT PROFILE
+    </button>
+    <p style="color:var(--text4);font-size:.72rem;text-align:center;margin-top:8px;line-height:1.4">Data will be merged into <strong style="color:var(--text3)">${Users.current?.name||'current profile'}</strong></p>
+  </div>
+
+  <!-- Warning note -->
+  <div style="margin:14px 16px;padding:12px 14px;background:rgba(255,176,32,.06);border:1px solid rgba(255,176,32,.25);border-radius:var(--r);display:flex;gap:10px;align-items:flex-start">
+    <svg width="16" height="16" fill="none" stroke="var(--amber)" stroke-width="1.8" style="flex-shrink:0;margin-top:2px"><circle cx="8" cy="8" r="7"/><line x1="8" y1="5" x2="8" y2="8.5"/><circle cx="8" cy="11" r=".6" fill="var(--amber)" stroke="none"/></svg>
+    <p style="color:var(--text2);font-size:.82rem;line-height:1.55">Each profile's data is stored <strong style="color:var(--text)">separately and privately</strong> on this device. Deleting a profile <strong style="color:var(--red)">permanently erases</strong> all its sessions and progress — this cannot be undone. Always backup before deleting.</p>
+  </div>
+</div>`;
+}
+
+function switchToUser(id){App.switchUser(id);}
+function addUser(){
+  const name=prompt('Enter shooter name (max 20 chars):','');
+  if(!name||!name.trim())return;
+  if(Users.all.length>=Users.MAX){toast('Maximum 5 profiles reached');return;}
+  const u=Users.add(name);
+  if(u){Users.switchTo(u.id);App.switchUser(u.id);toast('Profile created: '+u.name);}
+}
+function renameUser(id,current){
+  const name=prompt('New name for this profile:',current);
+  if(!name||!name.trim())return;
+  Users.rename(id,name);
+  toast('Renamed to '+name.trim().slice(0,20));
+  render();
+}
+function deleteUser(id,name){
+  const uSessions=JSON.parse(localStorage.getItem('ts_sessions_'+id)||'[]');
+  const msg=`Delete profile "${name}"?\n\nThis will permanently erase ${uSessions.length} session(s) and all progress.\n\nThis CANNOT be undone. Backup first!`;
+  if(!confirm(msg))return;
+  Users.del(id);
+  if(Users.currentId===id||!Users.current)App.switchUser(Users.all[0]?.id||'');
+  else{toast('Profile deleted');render();}
+}
+function exportUserData(id,name){
+  const sessions=JSON.parse(localStorage.getItem('ts_sessions_'+id)||'[]');
+  const prefs=JSON.parse(localStorage.getItem('ts_prefs_'+id)||'{}');
+  const payload={version:1,exported:new Date().toISOString(),shooter:name,sessions,prefs};
+  const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
+  const filename=`airscan_${name.replace(/\s+/g,'_')}_backup_${new Date().toISOString().slice(0,10)}.json`;
+  const file=new File([blob],filename,{type:'application/json'});
+  if(navigator.share&&navigator.canShare&&navigator.canShare({files:[file]})){
+    navigator.share({title:`AirScan Backup — ${name}`,files:[file]}).catch(()=>_fallbackDl(URL.createObjectURL(blob),filename));
+  } else {_fallbackDl(URL.createObjectURL(blob),filename);}
+  toast('Backup saved for '+name+'!');
+}
 // ══════════════════════════════════════════════════════════════════
 function pgGuide(){
   const steps=[
     {
       num:'01',color:'var(--green)',
-      title:'Shoot Your Target',
-      body:'Fire your shots at a standard 10m air gun target (ISSF paper or card). Make sure the pellet holes are clearly visible — good lighting helps a lot. A clean white/cream target against a dark background gives the best results.'
+      title:'Create Your Shooter Profile',
+      body:'When you first open the app, a default profile called "Shooter 1" is created for you automatically. Tap the profile pill in the top-left corner of the home screen to rename it to your own name, add more shooters (up to 5), or switch between profiles. Every shooter\'s data is stored completely separately.'
     },
     {
       num:'02',color:'var(--blue)',
-      title:'Photograph the Target',
-      body:'Use your phone camera or upload a saved image. Hold the phone parallel to the target — try to avoid angles. The target should fill most of the frame. Natural light or a bright room works best. Avoid shadows across the target face.'
+      title:'Shoot Your Target',
+      body:'Fire your shots at a standard 10m air gun target (ISSF paper or card). Make sure the pellet holes are clearly visible — good lighting helps a lot. A clean white/cream target against a dark background gives the best results. Photograph the target right after shooting, before moving or folding it.'
     },
     {
       num:'03',color:'var(--amber)',
-      title:'Configure Your Session',
-      body:'Select your target type (10m Air Pistol, 10m Air Rifle, etc.), caliber (.177 is standard), and scoring method (ISSF Decimal is recommended for competition training). Your choices are remembered for next time.'
+      title:'Upload or Capture the Image',
+      body:'Tap UPLOAD TARGET IMAGE to select a photo from your gallery, or tap USE CAMERA to shoot directly. Hold the phone parallel to the target — avoid angles. The target should fill most of the frame. Natural light or a bright room works best; avoid shadows across the target face.'
     },
     {
       num:'04',color:'var(--green)',
-      title:'Place Shot Markers',
-      body:'The editor opens automatically. Pinch to zoom in close, then tap exactly on each pellet hole to place a red marker. Drag to reposition. Use UNDO if you make a mistake. Zoom in as much as needed for precision — this step directly affects your score accuracy.'
+      title:'Configure Your Session',
+      body:'Select your target type (10m Air Pistol, 10m Air Rifle, etc.), caliber (.177 is the ISSF standard), and scoring method (ISSF Decimal is recommended for competition training). Your choices are remembered separately for each shooter profile.'
     },
     {
       num:'05',color:'var(--blue)',
-      title:'Apply & Review Results',
-      body:'Tap APPLY to calculate scores. The app scores each shot based on its distance from the target centre, following ISSF ring values. You\'ll see your total score, MPI (Mean Point of Impact), extreme spread, and an AI coaching tip.'
+      title:'Place Shot Markers',
+      body:'The editor opens automatically. Pinch to zoom in close, then tap exactly on each pellet hole to place a marker. Drag to reposition. Use UNDO if you make a mistake. Always zoom to at least 200–300% before placing — small placement errors directly affect your score accuracy.'
     },
     {
       num:'06',color:'var(--amber)',
-      title:'Track Your Progress',
-      body:'Every session is saved automatically. After 2+ sessions the STATS tab shows score trends, grouping consistency, and MPI drift over time. After 3+ sessions the REPORT tab gives a full monthly breakdown with performance grades.'
+      title:'Review Results & Track Progress',
+      body:'Tap APPLY to calculate scores. You\'ll see total score, MPI (Mean Point of Impact), extreme spread, and a full shot breakdown. Every session saves automatically to your profile. After 2+ sessions the STATS tab shows your score trends; after 3+ the REPORT tab gives a full monthly breakdown.'
     },
   ];
 
   const faqs=[
     {
-      q:'Can multiple shooters use the same device?',
-      a:'No — and this is important. All session data is stored together on one device with no separate profiles. If two shooters use the same device, their history, progress charts, and averages will be completely mixed together, making the statistics meaningless for both. One device must be used by one shooter only. If you share a device, use the Export Backup feature to save your data before handing it over, and restore it when you get it back.',
-      warn:true
+      q:'Can multiple shooters share one device?',
+      a:'Yes — this is fully supported. Each shooter gets their own profile (up to 5 profiles per device). Tap the profile pill in the top-left of the home screen to switch profiles or add a new one. Every profile\'s sessions, scores, progress charts and settings are stored completely separately. One profile\'s data never mixes with another\'s.',
+      good:true
+    },
+    {
+      q:'How do I add a new shooter profile?',
+      a:'Tap the profile pill (top-left, home screen) → tap ADD SHOOTER PROFILE → enter the shooter\'s name. They get their own colour-coded avatar and a completely fresh set of sessions. You can have up to 5 profiles on one device. Switch between them instantly — all data is saved and waiting when you switch back.'
     },
     {
       q:'How accurate is the scoring?',
-      a:'Accuracy depends almost entirely on how precisely you place the shot markers. The scoring maths itself is exact — it measures pixel distance from the target centre and maps it to ISSF ring values. Zoom in close when placing markers for best results. Placement error of even a few pixels can shift a score by 0.1–0.3 points.'
+      a:'Accuracy depends almost entirely on how precisely you place the shot markers. The scoring maths itself is exact — it measures pixel distance from the target centre and maps it to ISSF ring values. Zoom in close when placing markers for best results. A placement error of even a few pixels can shift a score by 0.1–0.3 points.'
     },
     {
       q:'What happens if I clear Safari / browser data?',
-      a:'Clearing browser history alone is safe. However "Clear History and Website Data" in Safari Settings, or equivalent in other browsers, WILL delete your session data. Use Export Backup regularly to protect your progress. Installing the app to your Home Screen gives it isolated storage that is not affected by browser data clearing.'
+      a:'Clearing browser history alone is safe. However "Clear History and Website Data" in Safari Settings, or the equivalent in other browsers, WILL delete all profile data on this device. Use the Backup feature regularly for each profile. Installing the app to your Home Screen gives it isolated storage that is not affected by browser data clearing.'
     },
     {
       q:'Does this work offline?',
-      a:'Yes, fully. Once loaded the app works completely offline — no internet connection is needed to place shots, score, or view your history and progress. The only features that need a connection are loading Google Fonts (display only) and the optional AI coaching tips.'
+      a:'Yes, fully. Once loaded the app works completely offline — no internet connection is needed to place shots, score, or view history and progress charts.'
+    },
+    {
+      q:'How do I back up my data?',
+      a:'Go to the Profiles page (tap the profile pill → select your profile → tap BACKUP). This saves a JSON file named with your shooter name and date. You can share it directly to WhatsApp, email, iCloud or Google Drive via the share sheet. To restore, tap RESTORE BACKUP on the Profiles page — data merges into the current active profile.'
     },
     {
       q:'What target types are supported?',
@@ -1871,66 +2011,50 @@ function pgGuide(){
     },
     {
       q:'How do I fix a wrong shot placement?',
-      a:'Tap the shot marker to select it (it turns orange), then drag it to the correct position. Or tap DELETE to remove it and tap again in the right spot. Use UNDO to step back through your recent changes. You can also re-open any saved session from History and tap EDIT to correct placements.'
+      a:'Tap the shot marker to select it (it turns orange), then drag it to the correct position. Or tap DELETE to remove it and tap again in the right spot. Use UNDO to step back through recent changes. You can also re-open any saved session from History and tap EDIT to correct placements.'
     },
   ];
 
   return`
-<div class="scroll-page" style="padding-bottom:calc(90px + env(safe-area-inset-bottom,0))">
+<div class="scroll-page" style="padding-bottom:calc(90px + env(safe-area-inset-bottom,0px))">
   <div class="ph">
     <button class="btn-icon btn" onclick="navTo('home')">${I.back}</button>
     <span class="ph-title">HOW TO USE</span>
     <span class="ph-sub">AIRSCAN PRO</span>
   </div>
 
-  <!-- ⚠️ ONE DEVICE ONE SHOOTER — TOP OF PAGE, CANNOT BE MISSED -->
-  <div style="background:rgba(255,58,74,0.10);border-bottom:2px solid var(--red)">
-    <div style="padding:18px 18px 14px">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
-        <div style="width:38px;height:38px;flex-shrink:0;border-radius:50%;background:rgba(255,58,74,0.18);border:2px solid var(--red);display:flex;align-items:center;justify-content:center">
-          <svg width="18" height="18" fill="none" stroke="var(--red)" stroke-width="2.2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-        </div>
-        <div>
-          <div style="font-family:var(--head);font-size:.78rem;letter-spacing:.16em;color:var(--red)">IMPORTANT — READ FIRST</div>
-          <div style="font-family:var(--head);font-size:.6rem;letter-spacing:.12em;color:rgba(255,58,74,0.7);margin-top:2px">ONE DEVICE · ONE SHOOTER · PERMANENTLY</div>
-        </div>
-      </div>
-
-      <p style="color:var(--text);font-size:1rem;line-height:1.7;margin-bottom:12px">
-        This app has <strong style="color:#fff">no user accounts, no profiles, and no way to separate data.</strong>
-        Every session you record is stored together on this one device.
-      </p>
-      <p style="color:var(--text);font-size:1rem;line-height:1.7;margin-bottom:14px">
-        If a second shooter uses this device — even once — their sessions will be <strong style="color:var(--red)">permanently mixed</strong> into your history.
-        Your progress charts, score averages, monthly breakdowns and MPI trends will all be corrupted.
-        <strong style="color:#fff">There is no way to undo this or separate the data afterwards.</strong>
-      </p>
-
-      <div style="background:rgba(5,8,16,0.5);border:1px solid rgba(255,58,74,0.35);border-radius:8px;padding:13px 14px;display:flex;flex-direction:column;gap:9px">
-        <div style="display:flex;align-items:flex-start;gap:10px">
-          <span style="color:var(--green);font-size:1rem;flex-shrink:0;margin-top:1px">✓</span>
-          <span style="color:var(--text);font-size:.92rem;line-height:1.5">This device belongs to <strong>one shooter only</strong> and should stay that way permanently.</span>
-        </div>
-        <div style="display:flex;align-items:flex-start;gap:10px">
-          <span style="color:var(--green);font-size:1rem;flex-shrink:0;margin-top:1px">✓</span>
-          <span style="color:var(--text);font-size:.92rem;line-height:1.5">Every shooter on a team <strong>needs their own separate device.</strong></span>
-        </div>
-        <div style="display:flex;align-items:flex-start;gap:10px">
-          <span style="color:var(--green);font-size:1rem;flex-shrink:0;margin-top:1px">✓</span>
-          <span style="color:var(--text);font-size:.92rem;line-height:1.5">Use <strong>Export Backup</strong> (on the home screen) to save your data to a file — keep it safe.</span>
-        </div>
-        <div style="display:flex;align-items:flex-start;gap:10px">
-          <span style="color:var(--red);font-size:1rem;flex-shrink:0;margin-top:1px">✕</span>
-          <span style="color:var(--text2);font-size:.92rem;line-height:1.5">Never let another shooter record sessions on your device — the damage is <strong style="color:var(--red)">irreversible.</strong></span>
-        </div>
-      </div>
-    </div>
-  </div>
-
   <!-- Intro banner -->
   <div style="padding:20px 18px;background:linear-gradient(135deg,rgba(0,255,136,0.07),rgba(0,212,255,0.04));border-bottom:1px solid var(--border)">
     <div style="font-family:var(--head);font-size:.62rem;letter-spacing:.2em;color:var(--green);margin-bottom:8px">GETTING STARTED</div>
-    <p style="color:var(--text);font-size:1rem;line-height:1.65">AirScan Pro turns your phone camera into a precision shot analysis tool for 0.177 air gun training. Follow the steps below for accurate results.</p>
+    <p style="color:var(--text);font-size:1rem;line-height:1.65;margin-bottom:10px">AirScan Pro turns your phone camera into a precision shot analysis tool for 0.177 air gun training. Up to <strong style="color:var(--green)">5 shooter profiles</strong> can share one device — each with fully isolated history, scores and progress.</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      ${[['👤','Up to 5 Profiles'],['📊','ISSF Scoring'],['📡','Works Offline'],['📤','Share Results']].map(([em,label])=>`
+      <div style="display:flex;align-items:center;gap:6px;padding:6px 10px;background:rgba(0,255,136,0.07);border:1px solid rgba(0,255,136,0.2);border-radius:20px">
+        <span style="font-size:.9rem">${em}</span>
+        <span style="font-family:var(--head);font-size:.55rem;letter-spacing:.08em;color:var(--green)">${label}</span>
+      </div>`).join('')}
+    </div>
+  </div>
+
+  <!-- Profiles highlight -->
+  <div style="margin:16px 16px 4px;padding:14px 16px;background:rgba(0,212,255,0.06);border:1.5px solid rgba(0,212,255,0.25);border-radius:var(--r)">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+      <svg width="18" height="18" fill="none" stroke="var(--blue)" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+      <span style="font-family:var(--head);font-size:.7rem;letter-spacing:.14em;color:var(--blue)">MULTIPLE SHOOTERS — ONE DEVICE</span>
+    </div>
+    <p style="color:var(--text);font-size:.92rem;line-height:1.6;margin-bottom:10px">Up to <strong>5 shooters</strong> can share this device safely. Each profile keeps its own sessions, scores, progress charts and settings — completely separate from everyone else.</p>
+    <div style="display:flex;flex-direction:column;gap:7px">
+      ${[
+        ['✓','Tap the profile pill (top-left, home screen) to switch shooter','var(--green)'],
+        ['✓','Each shooter\'s data is 100% isolated — nothing ever mixes','var(--green)'],
+        ['✓','Add, rename or delete profiles from the Profiles page','var(--green)'],
+        ['✓','Each profile has its own backup — share to WhatsApp or email','var(--green)'],
+      ].map(([mark,text,col])=>`
+      <div style="display:flex;gap:9px;align-items:flex-start">
+        <span style="color:${col};font-size:.95rem;flex-shrink:0;line-height:1.4">${mark}</span>
+        <span style="color:var(--text2);font-size:.88rem;line-height:1.5">${text}</span>
+      </div>`).join('')}
+    </div>
   </div>
 
   <!-- Step-by-step -->
@@ -1957,7 +2081,7 @@ function pgGuide(){
     <div class="fade-up" style="animation-delay:${i*0.04}s;border-bottom:1px solid var(--border)">
       <button onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='block'?'none':'block';this.querySelector('.faq-arr').style.transform=this.nextElementSibling.style.display==='block'?'rotate(90deg)':'rotate(0deg)'"
         style="width:100%;display:flex;align-items:center;justify-content:space-between;gap:14px;padding:15px 18px;background:none;border:none;cursor:pointer;text-align:left;touch-action:manipulation;-webkit-tap-highlight-color:transparent">
-        <span style="font-family:var(--body);font-size:.95rem;font-weight:600;color:${f.warn?'var(--amber)':'var(--text)'};line-height:1.4">${f.q}</span>
+        <span style="font-family:var(--body);font-size:.95rem;font-weight:600;color:${f.good?'var(--green)':'var(--text)'};line-height:1.4">${f.q}</span>
         <svg class="faq-arr" width="18" height="18" fill="none" stroke="var(--text3)" stroke-width="2" style="flex-shrink:0;transition:transform .2s"><polyline points="9 18 15 12 9 6"/></svg>
       </button>
       <div style="display:none;padding:0 18px 16px">
@@ -1971,10 +2095,11 @@ function pgGuide(){
     <div class="slbl">PRO TIPS</div>
     <div style="display:flex;flex-direction:column;gap:10px">
       ${[
-        ['📸','Photography','Photograph at the range right after shooting — before the target is moved or folded. A flat target gives the most accurate ring measurements.'],
-        ['🔍','Zoom in','In the editor, always zoom to at least 200–300% before placing markers. Small placement errors compound when scoring multiple shots.'],
-        ['💾','Backup regularly','Export your backup after every few sessions. Store the file in iCloud, Google Drive or send it to yourself via email.'],
-        ['📲','Install the app','Add to Home Screen for the best experience — full screen, faster loading, and storage isolated from your browser.'],
+        ['📸','Photography','Photograph at the range right after shooting — before the target is moved or folded. Hold the phone flat and parallel to the target for the most accurate ring measurements.'],
+        ['🔍','Zoom in when placing','In the editor, always zoom to at least 200–300% before placing markers. Small placement errors compound across multiple shots and directly reduce score accuracy.'],
+        ['👤','One profile per shooter','Even if only one person usually uses this device, set up a named profile. It keeps your data organised and makes backup/restore much cleaner.'],
+        ['💾','Backup after every session','Export your backup from the Profiles page after each training session. Send it to yourself via email or WhatsApp — if the browser clears data you\'ll have everything safe.'],
+        ['📲','Install the app','Add to Home Screen for the best experience — full screen, faster loading, and storage isolated from your browser\'s clear-data actions.'],
       ].map(([em,title,tip])=>`
       <div style="display:flex;gap:12px;padding:13px 14px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r)">
         <span style="font-size:1.3rem;flex-shrink:0;line-height:1.3">${em}</span>
@@ -1990,7 +2115,7 @@ function pgGuide(){
 }
 // ══════════════════════════════════════════════════════════════════
 function renderNav(){
-  const navViews=['home','results','history','progress','report','guide'];
+  const navViews=['home','results','history','progress','report','guide','profiles'];
   if(!navViews.includes(App.view))return'';
   const tabs=[
     {id:'home',   icon:`<svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><line x1="2" y1="12" x2="7" y2="12"/><line x1="17" y1="12" x2="22" y2="12"/><line x1="12" y1="2" x2="12" y2="7"/><line x1="12" y1="17" x2="12" y2="22"/><circle cx="12" cy="12" r="2.5" fill="currentColor" stroke="none"/></svg>`, label:'SCAN'},
@@ -2025,6 +2150,7 @@ function render(){
   else if(App.view==='progress')   html=pgProgress();
   else if(App.view==='report')     html=pgReport();
   else if(App.view==='editor')     html=pgEditor();
+  else if(App.view==='profiles')   html=pgProfiles();
   else if(App.view==='guide')      html=pgGuide();
   root.innerHTML=html+renderNav();
   if(App.view==='camera'){const v=document.getElementById('camvid');if(v&&App.stream)v.srcObject=App.stream;}
@@ -2037,17 +2163,22 @@ function render(){
     });
   }
   if(App.view==='editor'){
-    const canvas=document.getElementById('ed-canvas');
-    if(canvas&&Ed.img){
+    requestAnimationFrame(()=>{
+      const wrap=document.getElementById('ed-wrap');
+      const canvas=document.getElementById('ed-canvas');
+      if(!wrap||!canvas||!Ed.img)return;
+      const dpr=window.devicePixelRatio||1;
+      Ed.dpr=dpr;
+      const w=wrap.clientWidth;
+      const h=wrap.clientHeight;
+      canvas.width=Math.round(w*dpr);
+      canvas.height=Math.round(h*dpr);
+      canvas.style.width=w+'px';
+      canvas.style.height=h+'px';
       Ed.fit(canvas.width,canvas.height);
       Ed.redraw();
       setupEditorEvents();
-    }
-  }
-  if(App.view==='report'&&App.reportText){
-    const w=document.getElementById('ai-report-wrap');
-    const t=document.getElementById('ai-report-text');
-    if(w&&t){w.style.display='block';t.textContent=App.reportText;}
+    });
   }
 }
 
@@ -2055,28 +2186,7 @@ function render(){
 //  HANDLERS
 // ══════════════════════════════════════════════════════════════════
 function navTo(id){App.setState({view:id,viewSession:null});}
-function handleEditorBack(){
-  if(App.results?.pending){
-    // Clean up: pending session was never committed — discard it
-    App.results=null;
-    _revokeAppImgUrl();
-    Ed.img=null;
-    App.setState({view:'home'});
-  } else {
-    App.setState({view:'results'});
-  }
-}
-function _revokeAppImgUrl(){
-  if(App.imgUrl&&App.imgUrl.startsWith('blob:')){URL.revokeObjectURL(App.imgUrl);App.imgUrl=null;}
-}
-function onFile(e){
-  const f=e.target.files[0];if(!f)return;
-  _revokeAppImgUrl();
-  App.imgUrl=URL.createObjectURL(f);
-  App.setState({view:'configure'});
-  // Reset file input so the same file can be re-selected
-  e.target.value='';
-}
+function onFile(e){const f=e.target.files[0];if(!f)return;App.imgUrl=URL.createObjectURL(f);App.setState({view:'configure'});}
 function runDemo(){const url=genDemo(8);App.imgUrl=url;runAnalysis(url);}
 
 // Instant chip selection — no full re-render, just toggle classes + save
@@ -2099,11 +2209,9 @@ function setCfg(key,val){
 }
 
 function exportData(){
-  const payload={version:1,exported:new Date().toISOString(),sessions:DB.sessions,prefs:DB.prefs};
-  const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
-  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
-  a.download=`airscan_backup_${new Date().toISOString().slice(0,10)}.json`;a.click();
-  toast('Backup saved! Keep this file somewhere safe.');
+  const u=Users.current;
+  const name=u?.name||'Shooter';
+  exportUserData(DB._uid,name);
 }
 function importData(){
   const inp=document.createElement('input');inp.type='file';inp.accept='.json,application/json';
@@ -2140,38 +2248,17 @@ function capturePhoto(){
   const v=document.getElementById('camvid');if(!v)return;
   const c=document.createElement('canvas');c.width=v.videoWidth;c.height=v.videoHeight;
   c.getContext('2d').drawImage(v,0,0);
-  c.toBlob(b=>{
-    _revokeAppImgUrl();
-    App.imgUrl=URL.createObjectURL(b);
-    App.stream?.getTracks().forEach(t=>t.stop());App.stream=null;
-    App.setState({view:'configure'});
-  }, 'image/jpeg',.95);
+  c.toBlob(b=>{App.imgUrl=URL.createObjectURL(b);App.stream?.getTracks().forEach(t=>t.stop());App.stream=null;App.setState({view:'configure'});}, 'image/jpeg',.95);
 }
 function openSession(id){
   const s=DB.sessions.find(s=>s.id===id);if(!s)return;
-  App.results=s;App.tip=s.tip||null;App.viewSession=s;App.setState({view:'results'});
+function openSession(id){
+  const s=DB.sessions.find(s=>s.id===id);if(!s)return;
+  App.results=s;App.viewSession=s;App.setState({view:'results'});
+}
 }
 function delSession(id){DB.del(id);toast('Session deleted');render();}
-function showConfirm(msg,onOk,okLabel='CONFIRM'){
-  const ov=document.createElement('div');
-  ov.style.cssText='position:fixed;inset:0;background:rgba(5,8,16,.88);z-index:9998;display:flex;align-items:center;justify-content:center;padding:24px;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)';
-  ov.innerHTML=`<div style="background:var(--bg2);border:1px solid var(--border2);border-radius:12px;padding:24px 20px;max-width:320px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,.6)">
-    <p style="color:var(--text);font-size:.95rem;line-height:1.6;margin-bottom:20px">${msg}</p>
-    <div style="display:flex;gap:10px">
-      <button class="btn btn-ghost" style="flex:1;font-size:.72rem" id="_conf-cancel">CANCEL</button>
-      <button class="btn btn-danger" style="flex:1;font-size:.72rem" id="_conf-ok">${okLabel}</button>
-    </div>
-  </div>`;
-  document.body.appendChild(ov);
-  ov.querySelector('#_conf-cancel').onclick=()=>ov.remove();
-  ov.querySelector('#_conf-ok').onclick=()=>{ov.remove();onOk();};
-  ov.addEventListener('click',e=>{if(e.target===ov)ov.remove();});
-}
-function confirmClear(){
-  showConfirm('Delete ALL saved sessions? This cannot be undone.',()=>{
-    DB.clear();App.results=null;App.tip=null;toast('All sessions cleared');render();
-  },'DELETE ALL');
-}
+function confirmClear(){if(confirm('Delete ALL saved sessions? This cannot be undone.')){DB.clear();App.results=null;toast('All sessions cleared');render();}}
 function dlImg(url){
   if(!url){toast('No image');return;}
   const filename=`airscan_${Date.now()}.jpg`;
@@ -2208,40 +2295,14 @@ function dlCSV(){
 }
 function _fallbackDl(url,filename){
   const a=document.createElement('a');a.href=url;a.download=filename;a.click();
-  // Revoke if this was a temporary blob URL we created
-  setTimeout(()=>{try{URL.revokeObjectURL(url);}catch{}},5000);
   toast('File saved!');
 }
 function printReport(){
   window.print();
 }
-async function genAIReport(count){
-  const ss=DB.sessions.filter(s=>s.stats&&s.scored?.length>0);
-  const md=getMonthlyData(ss);
-  const wrap=document.getElementById('ai-report-wrap');
-  const txt=document.getElementById('ai-report-text');
-  if(!wrap||!txt)return;
-  wrap.style.display='block';
-  txt.style.fontStyle='italic';
-  txt.style.color='var(--text3)';
-  txt.textContent='Generating comprehensive AI analysis…';
-  const report=await getMonthlyReport(ss,md.length);
-  if(report){
-    App.reportText=report;
-    txt.style.fontStyle='normal';
-    txt.style.color='var(--text)';
-    txt.textContent=report;
-    toast('AI report generated!');
-  }else{
-    txt.textContent='AI report unavailable. Add your Anthropic API key in the code to enable this feature.';
-    toast('Add API key to enable AI reports');
-  }
-}
 
 function openEditor(){
   const r=App.results;if(!r){toast('No session to edit');return;}
-  // Restore cfg from the session so scoring mode is correct when applyEdits runs
-  if(r.cfg){App.cfg={...r.cfg};}
   const imgSrc=r.imgUrl||App.imgUrl;
   if(!imgSrc){toast('Original image not available');return;}
   Ed.init(imgSrc,r.scored||[]);
@@ -2255,52 +2316,25 @@ function openEditor(){
 }
 
 async function applyEdits(){
-  if(!Ed.shots.length){
+  if(!Ed.img||!Ed.shots.length){
     toast('Place at least one shot first');return;
-  }
-  // Bug 1 fix: always reload fresh from Ed.imgUrl to avoid stale/invalid bitmap
-  // on second upload the HTMLImageElement reference can go stale on some platforms
-  let img=Ed.img;
-  if(!img||!img.naturalWidth){
-    if(!Ed.imgUrl){toast('Image not available');return;}
-    try{img=await loadImg(Ed.imgUrl);}catch{toast('Could not load image');return;}
-    Ed.img=img;Ed.imgW=img.naturalWidth;Ed.imgH=img.naturalHeight;
   }
   const canvas=document.createElement('canvas');
   canvas.width=Ed.imgW;canvas.height=Ed.imgH;
-  canvas.getContext('2d').drawImage(img,0,0);
+  canvas.getContext('2d').drawImage(Ed.img,0,0);
   const newScored=scoreShots(Ed.shots,canvas,App.results?.cfg?.mode||'integer');
   const newStats=calcStats(newScored,canvas);
   const newOverlay=drawOverlay(canvas,newScored,newStats);
-  // Bug 14 fix: persist original image as data URL so export/restore can re-open editor
-  // Use reduced quality JPEG to keep localStorage footprint manageable
-  let persistImgUrl=Ed.imgUrl;
-  if(Ed.imgUrl&&Ed.imgUrl.startsWith('blob:')){
-    try{
-      const sc=Math.min(1,920/Math.max(Ed.imgW,Ed.imgH));
-      const sc2=document.createElement('canvas');
-      sc2.width=Math.round(Ed.imgW*sc);sc2.height=Math.round(Ed.imgH*sc);
-      sc2.getContext('2d').drawImage(img,0,0,sc2.width,sc2.height);
-      persistImgUrl=sc2.toDataURL('image/jpeg',.82);
-    }catch{persistImgUrl=null;}
-  }
-  const updated={...App.results,scored:newScored,stats:newStats,overlayUrl:newOverlay,imgUrl:persistImgUrl,pending:false};
-  App.results=updated;App.tip=null;App.tipLoading=false;
-  // Save or update in DB
+  // Keep overlay in memory for immediate display — never written to DB
+  App.results={...App.results,scored:newScored,stats:newStats,overlayUrl:newOverlay,pending:false};
+  // Strip images before saving — only scores/stats/coords go to localStorage
+  const toSave={...App.results,overlayUrl:null,imgUrl:null};
   const sessions=DB.sessions;
-  const idx=sessions.findIndex(s=>s.id===updated.id);
-  if(idx>=0){sessions[idx]={...sessions[idx],...updated};DB.sessions=sessions;}
-  else{DB.add(updated);}
+  const idx=sessions.findIndex(s=>s.id===toSave.id);
+  if(idx>=0){sessions[idx]={...sessions[idx],...toSave};DB.sessions=sessions;}
+  else{DB.add(toSave);}
   toast('Shots saved — scores calculated!');
   App.setState({view:'results',viewSession:null});
-  // AI tip
-  if(newStats&&newScored.length>0){
-    App.tipLoading=true;render();
-    getSessionTip(newStats,newScored.length,App.results.cfg?.type||'IPSC',App.results.cfg?.caliber||'9mm').then(t=>{
-      if(t){App.tip=t;DB.updateTip(App.results.id,t);}
-      App.setState({tipLoading:false});
-    });
-  }
 }
 
 
