@@ -690,6 +690,19 @@ function drawMPIChart(canvasEl,sessions){
 // ══════════════════════════════════════════════════════════════════
 //  AI ANALYSIS
 // ══════════════════════════════════════════════════════════════════
+// ── Gemini API helper ──────────────────────────────────────────────
+const GEMINI_KEY='AIzaSyCFU78vPoAVY9jcaQnfQpI8jHkhyw2wFQw';
+async function gemini(prompt,maxTokens=800){
+  const url=`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_KEY}`;
+  const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({
+      contents:[{parts:[{text:prompt}]}],
+      generationConfig:{maxOutputTokens:maxTokens,temperature:0.7}
+    })});
+  const d=await r.json();
+  return d.candidates?.[0]?.content?.parts?.[0]?.text||null;
+}
+
 async function getSessionTip(stats,shots,type,caliber){
   if(!stats||!shots)return null;
   const prompt=`You are an expert ISSF air gun coach specialising in 0.177 (4.5mm) 10m Air Pistol and 10m Air Rifle. Give exactly 2 concise, specific coaching sentences based on this session:
@@ -700,12 +713,7 @@ Extreme spread (group size): ${stats.extremeSpreadMm.toFixed(1)}mm
 Mean radius: ${stats.meanRadMm.toFixed(1)}mm
 Discipline: ${type}
 Focus on air gun specific technique: hold area, trigger release, follow-through, natural point of aim, mental routine, pellet seating. Reference ISSF benchmarks where relevant (elite: ES <15mm, mean radius <6mm for 10m).`;
-  try{
-    const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',
-      headers:{'Content-Type':'application/json','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:130,messages:[{role:'user',content:prompt}]})});
-    const d=await r.json();return d.content?.[0]?.text||null;
-  }catch{return null;}
+  try{return await gemini(prompt,160);}catch{return null;}
 }
 
 async function getMonthlyReport(sessions,months){
@@ -738,12 +746,7 @@ Write a professional 4-paragraph ISSF air gun coaching report:
 4. Concrete drills and training plan for next period
 
 Be specific to air gun discipline, data-driven, and motivating. Professional ISSF coaching tone.`;
-  try{
-    const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',
-      headers:{'Content-Type':'application/json','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:600,messages:[{role:'user',content:prompt}]})});
-    const d=await r.json();return d.content?.[0]?.text||null;
-  }catch{return null;}
+  try{return await gemini(prompt,800);}catch{return null;}
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -1043,7 +1046,7 @@ function pgResults(r=App.results){
       <span style="color:var(--text3);font-size:.82rem;margin-left:4px">Analyzing your pattern…</span></div>`
     :tip?`<p style="color:var(--text);font-size:.92rem;line-height:1.62;font-style:italic">${tip}</p>`
     :scored.length===0?`<p style="color:var(--text3);font-size:.85rem">No bullet holes detected. Ensure the target is well-lit and fills most of the frame.</p>`
-    :`<p style="color:var(--text3);font-size:.82rem">Add an Anthropic API key in the code to enable AI coaching tips.</p>`}
+    :`<p style="color:var(--text3);font-size:.82rem">AI coaching unavailable — check your internet connection and try again.</p>`}
   </div>
   <!-- Shot Table -->
   ${scored.length>0?`<div class="fade-up s3" style="border-bottom:1px solid var(--border)">
@@ -1619,7 +1622,7 @@ function pgReport(){
     <button class="btn btn-primary" style="width:100%;padding:14px;font-size:.72rem" onclick="genAIReport(${ss.length})">
       ${I.bolt}&nbsp; GENERATE AI COMPREHENSIVE REPORT
     </button>
-    <p style="color:var(--text3);font-size:.72rem;text-align:center;margin-top:8px">Requires Anthropic API key in the code</p>
+    <p style="color:var(--text3);font-size:.72rem;text-align:center;margin-top:8px">Powered by Gemini 2.0 Flash — free AI coaching</p>
   </div>
 
   <!-- AI Report text area -->
