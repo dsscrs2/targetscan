@@ -42,12 +42,7 @@ body{background-image:
 /* ── ANIMATIONS ── */
 @keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
 @keyframes spin{to{transform:rotate(360deg)}}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.25}}
-@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
-@keyframes scanline{0%{top:-2px}100%{top:102%}}
 @keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
-@keyframes glowPulse{0%,100%{box-shadow:0 0 8px rgba(0,255,136,0.2)}50%{box-shadow:0 0 20px rgba(0,255,136,0.5)}}
-@keyframes countUp{from{opacity:0;transform:scale(.8)}to{opacity:1;transform:scale(1)}}
 .fade-up{animation:fadeUp 0.45s cubic-bezier(.2,.8,.3,1) both}
 .s1{animation-delay:.06s}.s2{animation-delay:.12s}.s3{animation-delay:.18s}.s4{animation-delay:.24s}.s5{animation-delay:.30s}.s6{animation-delay:.36s}
 
@@ -65,14 +60,11 @@ body{background-image:
 
 /* ── CARDS ── */
 .card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);overflow:hidden}
-.card-p{padding:16px}
-.card-glow{border-color:rgba(0,255,136,0.3);box-shadow:0 0 24px rgba(0,255,136,0.06)}
 
 /* ── STAT BOX ── */
 .sbox{background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);padding:14px 8px;text-align:center}
 .sbox-lbl{font-family:var(--head);font-size:.6rem;letter-spacing:.12em;color:var(--text3);margin-bottom:6px}
 .sbox-val{font-family:var(--mono);font-size:1.08rem}
-.sbox-unit{font-size:.72rem;color:var(--text3)}
 
 /* ── RANGE — fat 44px touch target ── */
 input[type=range]{-webkit-appearance:none;width:100%;height:44px;background:transparent;outline:none;cursor:pointer}
@@ -112,8 +104,6 @@ input[type=range]::-moz-range-thumb{width:26px;height:26px;border-radius:50%;bac
 .slbl::after{content:'';flex:1;height:1px;background:var(--border)}
 
 /* ── PROC STEP ── */
-.pstep{display:flex;align-items:center;gap:14px;padding:10px 0;transition:opacity .3s}
-.pdot{width:26px;height:26px;border-radius:50%;border:1.5px solid;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .3s}
 
 /* ── TOAST ── */
 #toast{position:fixed;top:max(16px,env(safe-area-inset-top,16px));left:50%;transform:translateX(-50%) translateY(-100px);background:var(--bg3);border:1px solid var(--green);color:var(--green);padding:13px 26px;border-radius:8px;font-family:var(--head);font-size:.72rem;letter-spacing:.1em;z-index:9999;transition:transform .3s cubic-bezier(.2,.8,.3,1);pointer-events:none;white-space:nowrap;box-shadow:0 4px 24px rgba(0,0,0,.5)}
@@ -145,6 +135,10 @@ input[type=range]::-moz-range-thumb{width:26px;height:26px;border-radius:50%;bac
 .ed-hint{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(5,8,16,.92);border:1px solid var(--border2);border-radius:12px;padding:20px 24px;text-align:center;pointer-events:none;transition:opacity .4s;z-index:10;width:min(88vw,280px)}
 @keyframes edPop{0%{transform:translate(-50%,-50%) scale(.85);opacity:0}60%{transform:translate(-50%,-50%) scale(1.04)}100%{transform:translate(-50%,-50%) scale(1);opacity:1}}
 .ed-hint{animation:edPop .35s ease both}
+
+/* ── ALIGNMENT SCREEN ── */
+#align-canvas{touch-action:none;cursor:grab;display:block}
+#align-canvas:active{cursor:grabbing}
 
 /* PRINT */
 @media print{
@@ -291,87 +285,51 @@ function toast(msg,dur=2600){
   _toastT=setTimeout(()=>e.classList.remove('show'),dur);
 }
 
-// ══════════════════════════════════════════════════════════════════
-//  CV ENGINE
-// ══════════════════════════════════════════════════════════════════
-function toGray(data,w,h){
-  const g=new Float32Array(w*h);
-  for(let i=0;i<w*h;i++)g[i]=0.299*data[i*4]+0.587*data[i*4+1]+0.114*data[i*4+2];
-  return g;
+// Parse pellet radius in mm from caliber string e.g. ".177 (4.5mm)" -> 2.25
+function pelletRadiusMm(caliberStr){
+  const m=(caliberStr||'').match(/([\d.]+)\s*mm/i);
+  return m?parseFloat(m[1])/2:2.25;
 }
-function morph(bin,w,h,op,r){
-  const out=new Uint8Array(w*h);
-  for(let y=r;y<h-r;y++)for(let x=r;x<w-r;x++){
-    let v=(op==='e');
-    L:for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){
-      if(dy*dy+dx*dx>r*r)continue;
-      const b=!!bin[(y+dy)*w+(x+dx)];
-      if(op==='e'&&!b){v=false;break L;}
-      if(op==='d'&&b){v=true;break L;}
-    }
-    out[y*w+x]=v?1:0;
-  }
-  return out;
-}
-function detectHoles(canvas){
-  const ctx=canvas.getContext('2d');
+function scoreShots(holes,canvas,cfg){
+  const cfgObj=(typeof cfg==='object'&&cfg)?cfg:{mode:cfg||'decimal'};
+  const mode=cfgObj.mode||'decimal';
   const{width:w,height:h}=canvas;
-  const d=ctx.getImageData(0,0,w,h).data;
-  const g=toGray(d,w,h);
-  let sum=0,sq=0;
-  for(const v of g){sum+=v;sq+=v*v;}
-  const mn=sum/(w*h),sd=Math.sqrt(Math.max(0,sq/(w*h)-mn*mn));
-  const thr=Math.max(32,Math.min(mn-sd*1.15,148));
-  let bin=new Uint8Array(w*h);
-  for(let i=0;i<g.length;i++)bin[i]=g[i]<thr?1:0;
-  bin=morph(morph(bin,w,h,'e',1),w,h,'d',3);
-  const vis=new Uint8Array(w*h),blobs=[];
-  for(let y=3;y<h-3;y++)for(let x=3;x<w-3;x++){
-    const i=y*w+x;
-    if(!bin[i]||vis[i])continue;
-    const stk=[i],px=[];vis[i]=1;
-    while(stk.length){
-      const c=stk.pop();px.push(c);
-      const cy=~~(c/w),cx=c%w;
-      for(const[dy,dx]of[[-1,0],[1,0],[0,-1],[0,1],[-1,-1],[-1,1],[1,-1],[1,1]]){
-        const ny=cy+dy,nx=cx+dx;
-        if(ny<1||ny>=h-1||nx<1||nx>=w-1)continue;
-        const ni=ny*w+nx;
-        if(bin[ni]&&!vis[ni]){vis[ni]=1;stk.push(ni);}
-      }
-    }
-    if(px.length>=10&&px.length<=9000)blobs.push(px);
-  }
-  const holes=[];
-  for(const px of blobs){
-    let sx=0,sy=0,mnX=w,mxX=0,mnY=h,mxY=0;
-    for(const i of px){const y=~~(i/w),x=i%w;sx+=x;sy+=y;mnX=Math.min(mnX,x);mxX=Math.max(mxX,x);mnY=Math.min(mnY,y);mxY=Math.max(mxY,y);}
-    const cx=sx/px.length,cy=sy/px.length,ar=(mxX-mnX+1)/(mxY-mnY+1);
-    if(ar<0.22||ar>4.5)continue;
-    const r=Math.sqrt(px.length/Math.PI);
-    if(px.length/(Math.PI*r*r)<0.18)continue;
-    holes.push({cx,cy,radius:Math.max(r,5),area:px.length});
-  }
-  const kept=[];
-  for(const h2 of holes)if(kept.every(k=>Math.hypot(h2.cx-k.cx,h2.cy-k.cy)>16))kept.push(h2);
-  return kept;
-}
-function scoreShots(holes,canvas,mode){
-  const{width:w,height:h}=canvas;
-  const maxR=Math.min(w,h)*0.47,cx=w/2,cy=h/2;
+  const spec=getISSFTargetSpec(cfgObj.type||'AIR_PISTOL_10M');
+  // Alignment data is REQUIRED for accurate scoring.
+  // The fallback (image-centre + proportional estimate) is only used for the
+  // built-in demo target, where the target is synthetically centred and sized.
+  // For any real photograph, App.alignData must be set by the alignment screen.
+  const ad=App.alignData;
+  const cx=ad?ad.cx:w/2, cy=ad?ad.cy:h/2;
+  const pxMm=ad?ad.pxMm:(Math.min(w,h)*0.47/spec.outerRMm); // fallback: demo only
+  const maxR=pxMm*spec.outerRMm;
+  const pelletRpx=pelletRadiusMm(cfgObj.caliber)*pxMm;
   return holes.map((hole,idx)=>{
     const dist=Math.hypot(hole.cx-cx,hole.cy-cy);
-    const ri=Math.min(9,~~((dist/maxR)*10));
-    const score=Math.max(0,10-ri);
-    const pos=(dist-ri*maxR/10)/(maxR/10);
-    const dec=score>0?Math.min(score+0.9,score+(1-pos)*0.9):0;
-    return{...hole,id:idx+1,dist_px:dist,score,decimal:Math.round(dec*10)/10};
+    const edgeDist=Math.max(0,dist-pelletRpx);
+    const edgeMm=edgeDist/pxMm;
+    let score=0;
+    for(let i=0;i<10;i++){if(edgeMm<=spec.steps[i])score=i+1;}
+    let dec=0;
+    if(score>0){
+      const outerB=spec.steps[score-1];
+      const innerB=score<10?spec.steps[score]:0;
+      const span=outerB-innerB;
+      const pos=span>0?Math.min(1,(edgeMm-innerB)/span):0;
+      dec=Math.round(Math.min(score+0.9,score+(1-pos)*0.9)*10)/10;
+    }
+    return{...hole,id:idx+1,dist_px:dist,score,decimal:dec};
   });
 }
-function calcStats(shots,canvas){
+function calcStats(shots,canvas,cfg){
   if(!shots.length)return null;
   const{width:w,height:h}=canvas;
-  const maxR=Math.min(w,h)*0.47,pxMm=maxR/115,cx=w/2,cy=h/2;
+  const cfgObj=(typeof cfg==='object'&&cfg)?cfg:{};
+  const spec=getISSFTargetSpec(cfgObj.type||'AIR_PISTOL_10M');
+  // Same alignment source as scoreShots — must stay in sync
+  const ad=App.alignData;
+  const cx=ad?ad.cx:w/2, cy=ad?ad.cy:h/2;
+  const pxMm=ad?ad.pxMm:(Math.min(w,h)*0.47/spec.outerRMm); // fallback: demo only
   const mX=shots.reduce((a,s)=>a+s.cx,0)/shots.length;
   const mY=shots.reduce((a,s)=>a+s.cy,0)/shots.length;
   const radii=shots.map(s=>Math.hypot(s.cx-mX,s.cy-mY));
@@ -387,22 +345,43 @@ function calcStats(shots,canvas){
     maxScore:shots.length*10
   };
 }
-function drawOverlay(canvas,shots,stats){
+function drawOverlay(canvas,shots,stats,cfg){
   const out=document.createElement('canvas');
   const{width:w,height:h}=canvas;
   out.width=w;out.height=h;
   const ctx=out.getContext('2d');
   ctx.drawImage(canvas,0,0);
-  const maxR=Math.min(w,h)*0.47,cx=w/2,cy=h/2;
-  for(let i=1;i<=10;i++){
-    const r=maxR*i/10;
+  const spec=getISSFTargetSpec((cfg&&cfg.type)||'AIR_PISTOL_10M');
+  // Same alignment source as scoreShots — must stay in sync
+  const ad=App.alignData;
+  const cx=ad?ad.cx:w/2, cy=ad?ad.cy:h/2;
+  const pxMm=ad?ad.pxMm:(Math.min(w,h)*0.47/spec.outerRMm); // fallback: demo only
+  const maxR=pxMm*spec.outerRMm;
+  // Draw rings using actual ISSF step proportions (outer→inner = score1→score10)
+  for(let i=0;i<10;i++){
+    const score=i+1; // spec.steps[i] = outer radius of score-(i+1) ring
+    const r=spec.steps[i]/spec.outerRMm*maxR;
+    const isOuter=(i===0);
     ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);
-    ctx.strokeStyle=`rgba(0,220,120,${i===10?0.6:0.28})`;ctx.lineWidth=i===10?2:1;ctx.stroke();
-    if(i>1){
+    ctx.strokeStyle=`rgba(0,220,120,${isOuter?0.65:0.3})`;ctx.lineWidth=isOuter?2:1;ctx.stroke();
+    // ISSF: ring numbers 1-8 only at 4 cardinal positions
+    if(score>=1&&score<=8){
+      const rInner=i<9?spec.steps[i+1]/spec.outerRMm*maxR:0;
+      const rMid=(r+rInner)/2;
       const fs=Math.max(8,maxR*0.032);
       ctx.font=`bold ${fs}px monospace`;ctx.textAlign='center';ctx.textBaseline='middle';
-      ctx.fillStyle='rgba(0,255,136,0.65)';ctx.fillText(10-i+1,cx,cy-r+fs*0.85);
+      ctx.fillStyle='rgba(0,255,136,0.75)';
+      ctx.fillText(score,cx-rMid,cy);   // left
+      ctx.fillText(score,cx+rMid,cy);   // right
+      ctx.fillText(score,cx,cy-rMid);   // top
+      ctx.fillText(score,cx,cy+rMid);   // bottom
     }
+  }
+  // White centre dot (rifle)
+  if(spec.centreWhiteDot){
+    const dotR=Math.max(3,0.25/spec.outerRMm*maxR);
+    ctx.beginPath();ctx.arc(cx,cy,dotR,0,Math.PI*2);
+    ctx.fillStyle='rgba(255,255,255,0.7)';ctx.fill();
   }
   if(stats){
     const{mpiX:mx,mpiY:my}=stats,s=18;
@@ -428,42 +407,58 @@ function genDemo(n=8){
   const ctx=c.getContext('2d');
   ctx.fillStyle='#ede8dc';ctx.fillRect(0,0,sz,sz);
   for(let i=0;i<400;i++){ctx.fillStyle=`rgba(0,0,0,${Math.random()*0.025})`;ctx.fillRect(Math.random()*sz,Math.random()*sz,~~(Math.random()*3)+1,~~(Math.random()*3)+1);}
-  const cols=['#ede8dc','#ede8dc','#aaaaaa','#aaaaaa','#4a7bc8','#4a7bc8','#c43838','#c43838','#e8b820','#e8b820'];
-  for(let i=10;i>=1;i--){
-    const r=maxR*i/10;
-    ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.fillStyle=cols[i-1];ctx.fill();
-    ctx.strokeStyle='rgba(0,0,0,0.38)';ctx.lineWidth=1.2;ctx.stroke();
+  // ISSF target colours — rifle: 3 white outer + 7 black inner; pistol: 6 cream + 4 black
+  const demoSpec=getISSFTargetSpec(App?.cfg?.type||'AIR_PISTOL_10M');
+  // Draw rings outer→inner using actual ISSF step proportions from PDF
+  for(let i=0;i<10;i++){
+    const r=demoSpec.steps[i]/demoSpec.outerRMm*maxR;
+    ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);
+    ctx.fillStyle=demoSpec.fills[i];ctx.fill();
+    ctx.strokeStyle='rgba(0,0,0,0.3)';ctx.lineWidth=0.7;ctx.stroke();
   }
-  ctx.strokeStyle='rgba(0,0,0,0.12)';ctx.lineWidth=0.8;ctx.setLineDash([5,5]);
+  // White centre dot (rifle: ring10 = white dot; pistol: no dot)
+  if(demoSpec.centreWhiteDot){
+    const dotR=Math.max(4,demoSpec.steps[9]/demoSpec.outerRMm*maxR);
+    ctx.beginPath();ctx.arc(cx,cy,dotR,0,Math.PI*2);ctx.fillStyle='#f5f2e8';ctx.fill();
+  }
+  // Crosshair guide lines
+  ctx.strokeStyle='rgba(0,0,0,0.1)';ctx.lineWidth=0.7;ctx.setLineDash([5,5]);
   ctx.beginPath();ctx.moveTo(cx-maxR,cy);ctx.lineTo(cx+maxR,cy);ctx.moveTo(cx,cy-maxR);ctx.lineTo(cx,cy+maxR);ctx.stroke();
   ctx.setLineDash([]);
-  for(let i=10;i>=2;i--){
-    const r=maxR*i/10-maxR*0.028;
-    ctx.fillStyle=i>=9?'rgba(0,0,0,.7)':i>=3?'rgba(255,255,255,.75)':'rgba(0,0,0,.7)';
-    ctx.font=`bold ${Math.max(10,maxR*0.035)}px Arial`;ctx.textAlign='center';ctx.textBaseline='middle';
-    ctx.fillText(i,cx+r*0.86,cy);ctx.fillText(i,cx-r*0.86,cy);
+  // Ring numbers 1-8 at 4 cardinal positions using actual spec proportions
+  for(let i=1;i<=8;i++){
+    // spec.steps[i-1]=outer radius of ring i, spec.steps[i]=outer radius of ring i+1
+    const rOuter=demoSpec.steps[i-1]/demoSpec.outerRMm*maxR;
+    const rInner=demoSpec.steps[i]/demoSpec.outerRMm*maxR;
+    const rMid=(rOuter+rInner)/2;
+    const textCol=demoSpec.numCol[i-1]||'rgba(0,0,0,0.7)';
+    const fs=Math.max(9,maxR*0.033);
+    ctx.fillStyle=textCol;ctx.font=`bold ${fs}px Arial`;
+    ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(i,cx+rMid,cy);      // right
+    ctx.fillText(i,cx-rMid,cy);      // left
+    ctx.fillText(i,cx,cy-rMid);      // top
+    ctx.fillText(i,cx,cy+rMid);      // bottom
   }
-  ctx.fillStyle='rgba(0,0,0,.7)';ctx.font=`bold ${maxR*0.046}px Arial`;ctx.textAlign='center';ctx.textBaseline='middle';
-  ctx.fillText('10',cx,cy-maxR*0.042);
   const bx=(Math.random()-.5)*maxR*.14,by=(Math.random()-.5)*maxR*.14;
   for(let i=0;i<n;i++){
     let sx,sy;
     do{sx=cx+bx+(Math.random()-.5)*maxR*.38;sy=cy+by+(Math.random()-.5)*maxR*.38;}
     while(Math.hypot(sx-cx,sy-cy)>maxR*.9);
     const hr=8+Math.random()*5;
-    ctx.beginPath();ctx.arc(sx+2,sy+2,hr,0,Math.PI*2);ctx.fillStyle='rgba(0,0,0,.3)';ctx.fill();
-    ctx.beginPath();ctx.arc(sx,sy,hr,0,Math.PI*2);ctx.fillStyle='#0a0a08';ctx.fill();
-    ctx.beginPath();ctx.arc(sx,sy,hr*1.35,0,Math.PI*2);ctx.strokeStyle='rgba(70,50,25,.3)';ctx.lineWidth=1.5;ctx.stroke();
+    // Simulate paper pellet hole: torn paper reveals bright backing, dark compressed edge
+    // Shadow
+    ctx.beginPath();ctx.arc(sx+1.5,sy+1.5,hr*1.3,0,Math.PI*2);ctx.fillStyle='rgba(0,0,0,0.35)';ctx.fill();
+    // Torn/compressed dark outer ring
+    ctx.beginPath();ctx.arc(sx,sy,hr*1.28,0,Math.PI*2);ctx.fillStyle='rgba(30,20,10,0.55)';ctx.fill();
+    // Bright torn paper hole — visible on both cream and black rings
+    ctx.beginPath();ctx.arc(sx,sy,hr,0,Math.PI*2);ctx.fillStyle='rgba(248,242,220,0.92)';ctx.fill();
+    // Small dark centre punch
+    ctx.beginPath();ctx.arc(sx,sy,hr*0.28,0,Math.PI*2);ctx.fillStyle='rgba(0,0,0,0.6)';ctx.fill();
   }
   return c.toDataURL('image/jpeg',.95);
 }
 const loadImg=url=>new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=rej;i.src=url;});
-function toCanvas(img,max=920){
-  const sc=Math.min(max/Math.max(img.width,img.height),1);
-  const w=~~(img.width*sc),h=~~(img.height*sc);
-  const c=document.createElement('canvas');c.width=w;c.height=h;
-  c.getContext('2d').drawImage(img,0,0,w,h);return c;
-}
 
 // ══════════════════════════════════════════════════════════════════
 //  ANALYTICS HELPERS
@@ -517,19 +512,22 @@ function buildHeatmap(sessions,size=200){
   let allShots=[];
   sessions.forEach(s=>{
     if(!s.scored||!s.stats)return;
-    const scale=s.stats.pxMm||1;
-    const{mpiX:_mx,mpiY:_my}=s.stats;
+    const pxMm=s.stats.pxMm||1;
+    // Reconstruct image target centre from stored MPI stats
+    const imgCx=s.stats.mpiX-s.stats.mpiOffX*pxMm;
+    const imgCy=s.stats.mpiY-s.stats.mpiOffY*pxMm;
     s.scored.forEach(sh=>{
-      // normalise shot coords to mm offset from center
-      const xMm=(sh.cx-(size/2))/((size*0.46)/115);
-      const yMm=(sh.cy-(size/2))/((size*0.46)/115);
+      // Convert stored pixel coords → mm offset from target centre
+      const xMm=(sh.cx-imgCx)/pxMm;
+      const yMm=(sh.cy-imgCy)/pxMm;
       allShots.push({xMm,yMm,score:sh.score});
     });
   });
-  // draw heat blobs
+  // draw heat blobs — scale mm → heatmap pixels using outerR of pistol (77.75mm) as reference
+  const hmScale=maxR/77.75;
   allShots.forEach(sh=>{
-    const px=cx+sh.xMm*(maxR/115);
-    const py=cy+sh.yMm*(maxR/115);
+    const px=cx+sh.xMm*hmScale;
+    const py=cy+sh.yMm*hmScale;
     if(Math.hypot(px-cx,py-cy)>maxR*1.05)return;
     const grad=ctx.createRadialGradient(px,py,0,px,py,12);
     const col=sh.score>=9?'rgba(0,255,136,':'rgba(255,176,32,';
@@ -544,7 +542,145 @@ function buildHeatmap(sessions,size=200){
 }
 
 // ══════════════════════════════════════════════════════════════════
-//  CANVAS CHARTS
+//  IFFS TARGET CARD VISUALIZATION
+//  Reconstructs shot positions on a standard 0.177 target from
+//  saved coordinate data — no original image required.
+// ══════════════════════════════════════════════════════════════════
+// Official ISSF target geometry per discipline
+function getISSFTargetSpec(type) {
+  if (type === 'AIR_RIFLE_10M') {
+    // Outer Ø 45.5mm total. Each ring 2.5mm radial width.
+    // Rings 1-3: WHITE (outer), Rings 4-10: BLACK (inner), white dot at centre
+    // Numbers 1-8 only at 4 cardinal positions — per official ISSF image
+    const steps=[22.75,20.25,17.75,15.25,12.75,10.25,7.75,5.25,2.75,0.25];
+    //            score1  score2  score3  score4  score5  score6  score7  score8  score9  score10
+    const fills=['#f5f2e8','#f5f2e8','#f5f2e8','#111','#111','#111','#111','#111','#111','#111'];
+    const strokes=['#888','#888','#888','#555','#555','#555','#555','#555','#555','#555'];
+    const numCol=['#111','#111','#111','#fff','#fff','#fff','#fff','#fff',null,null];
+    return {outerRMm:22.75,label:'10m Air Rifle',steps,fills,strokes,numCol,centreWhiteDot:true};
+  }
+  // Default: AIR_PISTOL_10M
+  // Outer Ø 155.5mm. Each ring 8mm radial width.
+  // Ring 10: r=5.75mm, Ring 9: r=13.75mm, ..., Ring 1: r=77.75mm
+  // Rings 1-6: cream, Rings 7-10: black
+  // Numbers printed for rings 1-8 only (no 9, no 10)
+  const steps=[77.75,69.75,61.75,53.75,45.75,37.75,29.75,21.75,13.75,5.75];
+  const fills=['#f5f2e8','#f5f2e8','#f5f2e8','#f5f2e8','#f5f2e8','#f5f2e8','#111','#111','#111','#111'];
+  const strokes=['#bbb','#bbb','#bbb','#bbb','#bbb','#bbb','#333','#333','#333','#333'];
+  const numCol=['#222','#222','#222','#222','#222','#222','#fff','#fff',null,null];
+  return {outerRMm:77.75,label:'10m Air Pistol',steps,fills,strokes,numCol,centreWhiteDot:false};
+}
+
+function buildShotCardSVG(scored, stats, session, size=290) {
+  if (!scored?.length || !stats) return null;
+  const cfgType=session?.cfg?.type||'AIR_PISTOL_10M';
+  const spec=getISSFTargetSpec(cfgType);
+  const S=size, H=Math.round(size*1.24), tcx=S/2, tcy=Math.round(S*0.595);
+  const maxR=Math.round(S*0.455), scale=maxR/spec.outerRMm;
+  // Reconstruct image target centre from stored MPI stats
+  const imgCx=stats.mpiX-stats.mpiOffX*stats.pxMm;
+  const imgCy=stats.mpiY-stats.mpiOffY*stats.pxMm;
+  // Draw rings outer→inner (score 1→10), each ring fills over previous
+  let rings='';
+  for(let i=0;i<10;i++){
+    const rPx=(spec.steps[i]*scale).toFixed(1);
+    rings+=`<circle cx="${tcx}" cy="${tcy}" r="${rPx}" fill="${spec.fills[i]}" stroke="${spec.strokes[i]}" stroke-width="0.6"/>`;
+  }
+  // White centre dot (rifle only)
+  // White centre dot — min 3px so always visible; represents the 10-ring
+  if(spec.centreWhiteDot){const dotR=Math.max(3,0.25*scale);rings+=`<circle cx="${tcx}" cy="${tcy}" r="${dotR.toFixed(1)}" fill="#f5f2e8" stroke="rgba(200,200,200,0.5)" stroke-width="0.4"/>`;}
+  // Crosshair hairlines (very subtle on target)
+  const ch='stroke="rgba(0,0,0,0.08)" stroke-width="0.5" stroke-dasharray="3,3"';
+  rings+=`<line x1="${tcx-maxR}" y1="${tcy}" x2="${tcx+maxR}" y2="${tcy}" ${ch}/>`;
+  rings+=`<line x1="${tcx}" y1="${tcy-maxR}" x2="${tcx}" y2="${tcy+maxR}" ${ch}/>`;
+  // Ring numbers: 1–8 only, at 4 cardinal positions (top/bottom/left/right) per ISSF official
+  for(let i=0;i<8;i++){
+    if(!spec.numCol[i]) continue;
+    const score=i+1;
+    const rOuter=spec.steps[i]*scale;
+    const rInner=i<9?spec.steps[i+1]*scale:0;
+    const rMid=(rOuter+rInner)/2;
+    const fs=Math.round(S*0.026);
+    const col=spec.numCol[i];
+    // left & right
+    rings+=`<text x="${(tcx-rMid).toFixed(1)}" y="${(tcy+fs*0.38).toFixed(1)}" font-size="${fs}" fill="${col}" font-family="monospace" font-weight="bold" text-anchor="middle">${score}</text>`;
+    rings+=`<text x="${(tcx+rMid).toFixed(1)}" y="${(tcy+fs*0.38).toFixed(1)}" font-size="${fs}" fill="${col}" font-family="monospace" font-weight="bold" text-anchor="middle">${score}</text>`;
+    // top & bottom
+    rings+=`<text x="${tcx}" y="${(tcy-rMid+fs*0.38).toFixed(1)}" font-size="${fs}" fill="${col}" font-family="monospace" font-weight="bold" text-anchor="middle">${score}</text>`;
+    rings+=`<text x="${tcx}" y="${(tcy+rMid+fs*0.38).toFixed(1)}" font-size="${fs}" fill="${col}" font-family="monospace" font-weight="bold" text-anchor="middle">${score}</text>`;
+  }
+  // MPI crosshair (gold)
+  const mpiSx=(tcx+stats.mpiOffX*scale).toFixed(1),mpiSy=(tcy+stats.mpiOffY*scale).toFixed(1),ms=Math.round(S*0.034);
+  rings+=`<circle cx="${mpiSx}" cy="${mpiSy}" r="${(ms*0.45).toFixed(1)}" fill="none" stroke="#FFD700" stroke-width="1.5"/>`;
+  rings+=`<line x1="${(+mpiSx-ms).toFixed(1)}" y1="${mpiSy}" x2="${(+mpiSx+ms).toFixed(1)}" y2="${mpiSy}" stroke="#FFD700" stroke-width="1.5"/>`;
+  rings+=`<line x1="${mpiSx}" y1="${(+mpiSy-ms).toFixed(1)}" x2="${mpiSx}" y2="${(+mpiSy+ms).toFixed(1)}" stroke="#FFD700" stroke-width="1.5"/>`;
+  // Shot holes (clipped to card area with shadow)
+  const pr=Math.max(3,Math.round(S*0.019));
+  let shots='';
+  scored.forEach(s=>{
+    const ox=(s.cx-imgCx)/stats.pxMm,oy=(s.cy-imgCy)/stats.pxMm;
+    const sx=(tcx+ox*scale).toFixed(1),sy=(tcy+oy*scale).toFixed(1);
+    const col=s.score>=9?'#22c55e':s.score>=8?'#3b82f6':s.score>=7?'#f59e0b':'#e63030';
+    shots+=`<circle cx="${+sx+1}" cy="${+sy+1}" r="${pr}" fill="rgba(0,0,0,0.3)"/>`;
+    shots+=`<circle cx="${sx}" cy="${sy}" r="${pr}" fill="${col}" stroke="white" stroke-width="${(pr*0.28).toFixed(1)}"/>`;
+    shots+=`<text x="${sx}" y="${(+sy+pr*0.42).toFixed(1)}" font-size="${Math.round(pr*0.82)}" fill="#fff" font-family="monospace" font-weight="bold" text-anchor="middle">${s.id}</text>`;
+  });
+  const dt=session?.ts?new Date(session.ts).toLocaleDateString('en',{day:'numeric',month:'short',year:'numeric'}):'';
+  const scoreStr=`${stats.totalScore}/${stats.maxScore}`,pctV=Math.round(stats.totalScore/stats.maxScore*100);
+  const gr=grade(pctV),sc=scoreColor(pctV);
+  const hdr=Math.round(S*0.11),ftr=Math.round(S*0.16);
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${S} ${H}" style="width:100%;max-width:${S}px;display:block">
+  <rect width="${S}" height="${H}" fill="#f5f2ec" rx="10"/>
+  <rect width="${S}" height="${hdr}" fill="#0d1b3e" rx="10"/>
+  <rect y="${hdr-8}" width="${S}" height="8" fill="#0d1b3e"/>
+  <text x="13" y="${Math.round(hdr*0.65)}" font-size="${Math.round(S*0.028)}" fill="rgba(0,255,136,0.85)" font-family="monospace" font-weight="700" letter-spacing="1">ISSF · ${spec.label.toUpperCase()} TARGET CARD</text>
+  <text x="${S-13}" y="${Math.round(hdr*0.65)}" font-size="${Math.round(S*0.025)}" fill="rgba(255,255,255,0.4)" font-family="monospace" text-anchor="end">${dt}</text>
+  <g transform="translate(0,${hdr-4})">${rings}${shots}</g>
+  <circle cx="${tcx}" cy="${tcy+hdr-4}" r="${maxR+1.5}" fill="none" stroke="#888" stroke-width="0.6"/>
+  <rect y="${H-ftr}" width="${S}" height="${ftr}" fill="#0d1b3e" rx="10"/>
+  <rect y="${H-ftr}" width="${S}" height="8" fill="#0d1b3e"/>
+  <text x="13" y="${H-Math.round(ftr*0.62)}" font-size="${Math.round(S*0.027)}" fill="rgba(255,255,255,0.45)" font-family="monospace">SCORE</text>
+  <text x="${Math.round(S*0.225)}" y="${H-Math.round(ftr*0.58)}" font-size="${Math.round(S*0.048)}" fill="${sc}" font-family="monospace" font-weight="700">${scoreStr}</text>
+  <text x="${S/2}" y="${H-Math.round(ftr*0.64)}" font-size="${Math.round(S*0.027)}" fill="rgba(255,255,255,0.45)" font-family="monospace" text-anchor="middle">ES: ${stats.extremeSpreadMm.toFixed(1)}mm</text>
+  <text x="${S/2}" y="${H-Math.round(ftr*0.35)}" font-size="${Math.round(S*0.025)}" fill="rgba(255,255,255,0.35)" font-family="monospace" text-anchor="middle">MR: ${stats.meanRadMm.toFixed(1)}mm · ${scored.length} shots</text>
+  <text x="${S-13}" y="${H-Math.round(ftr*0.48)}" font-size="${Math.round(S*0.065)}" fill="${sc}" font-family="monospace" font-weight="700" text-anchor="end">${gr}</text>
+  <circle cx="13" cy="${H-Math.round(ftr*0.22)}" r="3.5" fill="#22c55e"/>
+  <text x="21" y="${H-Math.round(ftr*0.18)}" font-size="${Math.round(S*0.022)}" fill="rgba(255,255,255,0.35)" font-family="monospace">9-10</text>
+  <circle cx="49" cy="${H-Math.round(ftr*0.22)}" r="3.5" fill="#3b82f6"/>
+  <text x="57" y="${H-Math.round(ftr*0.18)}" font-size="${Math.round(S*0.022)}" fill="rgba(255,255,255,0.35)" font-family="monospace">8</text>
+  <circle cx="73" cy="${H-Math.round(ftr*0.22)}" r="3.5" fill="#f59e0b"/>
+  <text x="81" y="${H-Math.round(ftr*0.18)}" font-size="${Math.round(S*0.022)}" fill="rgba(255,255,255,0.35)" font-family="monospace">7</text>
+  <circle cx="95" cy="${H-Math.round(ftr*0.22)}" r="3.5" fill="#e63030"/>
+  <text x="103" y="${H-Math.round(ftr*0.18)}" font-size="${Math.round(S*0.022)}" fill="rgba(255,255,255,0.35)" font-family="monospace">&lt;7</text>
+  <line x1="${S-52}" y1="${H-Math.round(ftr*0.22)}" x2="${S-43}" y2="${H-Math.round(ftr*0.22)}" stroke="#FFD700" stroke-width="1.5"/>
+  <text x="${S-40}" y="${H-Math.round(ftr*0.18)}" font-size="${Math.round(S*0.022)}" fill="rgba(255,255,255,0.35)" font-family="monospace">MPI</text>
+</svg>`;
+}
+
+function buildShotCardThumb(scored, stats, session) {
+  // 54×54 thumbnail for history list
+  if (!scored?.length || !stats) return null;
+  const cfgType=session?.cfg?.type||'AIR_PISTOL_10M';
+  const spec=getISSFTargetSpec(cfgType);
+  const S=54,cx=27,cy=27,maxR=22,scale=maxR/spec.outerRMm;
+  const imgCx=stats.mpiX-stats.mpiOffX*stats.pxMm;
+  const imgCy=stats.mpiY-stats.mpiOffY*stats.pxMm;
+  let r='';
+  for(let i=0;i<10;i++){
+    const rPx=Math.max(0.5,(spec.steps[i]*scale)).toFixed(1);
+    r+=`<circle cx="${cx}" cy="${cy}" r="${rPx}" fill="${spec.fills[i]}" stroke="${spec.strokes[i]}" stroke-width="0.4"/>`;
+  }
+  let s='';
+  scored.forEach(sh=>{
+    const ox=(sh.cx-imgCx)/stats.pxMm,oy=(sh.cy-imgCy)/stats.pxMm;
+    const sx=(cx+ox*scale).toFixed(1),sy=(cy+oy*scale).toFixed(1);
+    const col=sh.score>=9?'#22c55e':sh.score>=8?'#3b82f6':sh.score>=7?'#f59e0b':'#e63030';
+    s+=`<circle cx="${sx}" cy="${sy}" r="2.8" fill="${col}" stroke="#fff" stroke-width="0.4"/>`;
+  });
+  // White centre dot on thumb
+  const thumbDot=spec.centreWhiteDot?`<circle cx="${cx}" cy="${cy}" r="1.5" fill="#f5f2e8"/>`:'';
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${S} ${S}" width="${S}" height="${S}" style="display:block;border-radius:6px;border:1px solid var(--border2)"><rect width="${S}" height="${S}" fill="#0a1020" rx="6"/>${r}${thumbDot}${s}</svg>`;
+}
 // ══════════════════════════════════════════════════════════════════
 function drawTrendChart(canvasEl,sessions){
   if(!canvasEl||sessions.length<1)return;
@@ -687,9 +823,196 @@ function drawMPIChart(canvasEl,sessions){
 }
 
 // ══════════════════════════════════════════════════════════════════
-//  AI ANALYSIS
+//  AI COACH REPORT  (Powered by Anthropic Claude)
 // ══════════════════════════════════════════════════════════════════
+const AI_KEY_K='airscan_ai_key_v1';
+function getAIKey(){return localStorage.getItem(AI_KEY_K)||'';}
+function setAIKey(k){localStorage.setItem(AI_KEY_K,k.trim());}
+function clearAIKey(){localStorage.removeItem(AI_KEY_K);}
 
+async function generateAICoachReport(session,allSessions){
+  const key=getAIKey();
+  if(!key){showAIKeyModal(session,allSessions);return;}
+  App.aiLoading=true;render();
+  const st=session.stats,sc=session.scored||[];
+  const pctV=pct(st.totalScore,st.maxScore);
+  const history=(allSessions||[]).slice(0,8).map((s,i)=>s.stats?`Session ${(allSessions||[]).length-i} (${new Date(s.ts).toLocaleDateString()}): ${s.stats.totalScore}/${s.stats.maxScore} (${pct(s.stats.totalScore,s.stats.maxScore)}%) ES:${s.stats.extremeSpreadMm.toFixed(1)}mm`:null).filter(Boolean);
+  const avgAll=(allSessions||[]).length>1?avg((allSessions||[]).slice(0,10).filter(s=>s.stats).map(s=>pct(s.stats.totalScore,s.stats.maxScore))):pctV;
+  const recentPcts=(allSessions||[]).slice(0,4).filter(s=>s.stats).map(s=>pct(s.stats.totalScore,s.stats.maxScore));
+  const trend=recentPcts.length>1?(avg(recentPcts.slice(0,2))>avg(recentPcts.slice(-2))?'IMPROVING':'DECLINING'):'SINGLE SESSION';
+  const mpiStr=`${Math.abs(st.mpiOffX).toFixed(1)}mm ${st.mpiOffX>0?'RIGHT':'LEFT'}, ${Math.abs(st.mpiOffY).toFixed(1)}mm ${st.mpiOffY>0?'DOWN':'UP'} from centre`;
+  const prompt=`You are an elite ISSF-certified air gun coach with 20+ years of experience. Analyze this shooter's data and provide a highly specific, actionable professional coaching report.
+
+CURRENT SESSION (${new Date(session.ts).toLocaleDateString()}):
+- Discipline: ${session.cfg?.type||'10m Air Rifle'} | Caliber: ${session.cfg?.caliber||'0.177'}
+- Score: ${st.totalScore}/${st.maxScore} (${pctV}% — Grade ${grade(pctV)})
+- Shots fired: ${sc.length}
+- MPI offset: ${mpiStr}
+- Extreme Spread (ES): ${st.extremeSpreadMm.toFixed(1)}mm
+- Mean Radius (MR): ${st.meanRadMm.toFixed(1)}mm
+- Shot scores: ${sc.map(s=>`#${s.id}:${session.cfg?.mode==='decimal'?s.decimal:s.score}`).join(', ')}
+
+${history.length>1?`RECENT HISTORY (latest first):\n${history.join('\n')}`:'FIRST SESSION — no historical data.'}
+OVERALL AVERAGE: ${avgAll.toFixed(1)}% | TREND: ${trend}
+
+Respond ONLY with this exact JSON — no other text, no markdown fences:
+{"overall_assessment":"2-3 sentence professional assessment","performance_level":"one of: Novice / Developing / Club Level / Regional Competitive / National Level","primary_issue":{"title":"most important technical issue","analysis":"detailed explanation 3-4 sentences","priority":"CRITICAL or HIGH or MEDIUM"},"secondary_issues":[{"title":"issue","analysis":"brief"}],"drills":[{"name":"drill name","duration":"e.g. 15 min daily","description":"specific step-by-step instructions","target_metric":"what this improves"}],"equipment_checks":["check 1","check 2"],"mental_game":"1-2 sentences on mental aspects","two_week_goals":["goal 1","goal 2","goal 3"],"coaches_note":"personal motivational note"}`;
+  try{
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:1600,messages:[{role:'user',content:prompt}]})
+    });
+    if(!res.ok){
+      if(res.status===401){clearAIKey();toast('Invalid API key — please re-enter');}
+      else toast('API error: '+res.status+' — check your key');
+      App.aiLoading=false;render();return;
+    }
+    const data=await res.json();
+    const text=(data.content||[]).map(c=>c.type==='text'?c.text:'').join('');
+    const clean=text.replace(/```json|```/g,'').trim();
+    const report=JSON.parse(clean);
+    App.aiReport=report;App.aiReportSession=session;App.showAIReport=true;App.aiLoading=false;render();
+  }catch(err){
+    console.error('AI Coach error:',err);
+    toast('Report failed — check API key & connection');
+    App.aiLoading=false;render();
+  }
+}
+
+function showAIKeyModal(session,allSessions){
+  const m=document.createElement('div');
+  m.id='ai-key-modal';
+  m.style.cssText='position:fixed;inset:0;background:rgba(5,8,16,.97);z-index:1000;display:flex;align-items:center;justify-content:center;padding:24px';
+  m.innerHTML=`
+  <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:12px;padding:28px 22px;max-width:340px;width:100%">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+      <svg width="22" height="22" fill="none" stroke="var(--green)" stroke-width="2"><circle cx="11" cy="11" r="9"/><path d="M11 7v4l3 3"/></svg>
+      <span style="font-family:var(--head);font-size:.82rem;letter-spacing:.18em;color:var(--green)">AI COACH — API KEY</span>
+    </div>
+    <p style="color:var(--text2);font-size:.9rem;line-height:1.65;margin-bottom:18px">Enter your Anthropic API key to generate a professional coaching report powered by Claude AI. Your key is stored only on this device and never sent anywhere except Anthropic.</p>
+    <input id="ai-key-inp" type="password" placeholder="sk-ant-api03-…" autocomplete="off" style="width:100%;padding:13px 14px;border-radius:8px;border:1px solid var(--border2);background:var(--bg3);color:var(--text);font-family:var(--mono);font-size:.82rem;outline:none;margin-bottom:14px;-webkit-appearance:none"/>
+    <div style="display:flex;gap:10px;margin-bottom:14px">
+      <button class="btn btn-ghost" style="flex:1;font-size:.7rem" onclick="document.getElementById('ai-key-modal').remove()">CANCEL</button>
+      <button class="btn btn-primary" style="flex:1;font-size:.7rem" onclick="
+        const k=document.getElementById('ai-key-inp').value.trim();
+        if(!k.startsWith('sk-')){toast('Enter a valid Anthropic API key (starts with sk-)');return;}
+        setAIKey(k);
+        document.getElementById('ai-key-modal').remove();
+        generateAICoachReport(App.viewSession||App.results,DB.sessions)">GENERATE REPORT</button>
+    </div>
+    <p style="color:var(--text4);font-size:.68rem;line-height:1.6;text-align:center">Get your key at <strong style="color:var(--text3)">console.anthropic.com</strong> → API Keys. Standard usage fees apply.</p>
+  </div>`;
+  document.body.appendChild(m);
+  setTimeout(()=>{const inp=document.getElementById('ai-key-inp');if(inp)inp.focus();},80);
+}
+
+function renderAIReportOverlay(report,session){
+  if(!report||!session)return'';
+  const st=session.stats;
+  const pctV=st?pct(st.totalScore,st.maxScore):0;
+  const priCol={CRITICAL:'var(--red)',HIGH:'var(--amber)',MEDIUM:'var(--blue)'}[report.primary_issue?.priority]||'var(--text3)';
+  return`
+<div id="ai-report-wrap" style="position:fixed;inset:0;background:var(--bg);z-index:800;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior-y:contain">
+  <div style="max-width:500px;margin:0 auto;padding-bottom:calc(40px + env(safe-area-inset-bottom,0px))">
+    <!-- Header -->
+    <div class="ph" style="position:sticky;top:0;z-index:100;background:rgba(5,8,16,.98)">
+      <button class="btn-icon btn" onclick="App.showAIReport=false;render()">${I.back}</button>
+      <div><span class="ph-title">AI COACH REPORT</span><br><span style="font-family:var(--head);font-size:.48rem;letter-spacing:.1em;color:var(--green)">Powered by Claude AI</span></div>
+      <button class="btn btn-ghost no-print" style="padding:7px 12px;font-size:.58rem" onclick="window.print()">PRINT</button>
+    </div>
+    <!-- Cover band -->
+    <div style="background:linear-gradient(160deg,#0d1b3e 0%,#1a3a5c 55%,#0d3028 100%);padding:26px 20px 22px;position:relative;overflow:hidden">
+      <div style="position:absolute;inset:0;background-image:linear-gradient(rgba(0,255,136,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(0,255,136,0.03) 1px,transparent 1px);background-size:28px 28px"></div>
+      <div style="position:relative;z-index:1">
+        <div style="font-family:var(--head);font-size:.45rem;letter-spacing:.3em;color:rgba(0,255,136,0.7);margin-bottom:3px">PROFESSIONAL COACHING ANALYSIS</div>
+        <div style="font-family:var(--head);font-size:1.2rem;font-weight:900;letter-spacing:.14em;color:#fff;margin-bottom:16px">AI COACH REPORT</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div><div style="font-family:var(--head);font-size:.42rem;letter-spacing:.14em;color:rgba(255,255,255,0.38);margin-bottom:3px">DATE</div><div style="font-family:var(--mono);color:#fff;font-size:.8rem">${new Date(session.ts).toLocaleDateString()}</div></div>
+          <div><div style="font-family:var(--head);font-size:.42rem;letter-spacing:.14em;color:rgba(255,255,255,0.38);margin-bottom:3px">GRADE</div><div style="font-family:var(--head);font-size:1.5rem;font-weight:900;color:${scoreColor(pctV)}">${grade(pctV)}</div></div>
+          <div><div style="font-family:var(--head);font-size:.42rem;letter-spacing:.14em;color:rgba(255,255,255,0.38);margin-bottom:3px">SCORE</div><div style="font-family:var(--mono);color:#fff;font-size:.8rem">${st?.totalScore}/${st?.maxScore} · ${pctV}%</div></div>
+          <div><div style="font-family:var(--head);font-size:.42rem;letter-spacing:.14em;color:rgba(255,255,255,0.38);margin-bottom:3px">LEVEL</div><div style="font-family:var(--mono);color:var(--green);font-size:.72rem">${report.performance_level}</div></div>
+        </div>
+      </div>
+    </div>
+    <!-- Assessment -->
+    <div style="padding:18px 20px;border-bottom:1px solid var(--border);background:var(--bg2)">
+      <div class="slbl" style="margin-bottom:10px">OVERALL ASSESSMENT</div>
+      <p style="color:var(--text);font-size:.92rem;line-height:1.72">${report.overall_assessment}</p>
+    </div>
+    <!-- Primary Issue -->
+    <div style="padding:18px 20px;border-bottom:1px solid var(--border);background:var(--bg3)">
+      <div class="slbl" style="margin-bottom:12px">PRIMARY FOCUS</div>
+      <div style="border-left:3px solid ${priCol};padding-left:14px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:7px;flex-wrap:wrap">
+          <span style="font-family:var(--head);font-size:.7rem;letter-spacing:.08em;color:${priCol}">${report.primary_issue?.title}</span>
+          <span style="font-family:var(--head);font-size:.46rem;padding:2px 8px;border-radius:3px;background:${priCol}20;color:${priCol};border:1px solid ${priCol}50">${report.primary_issue?.priority}</span>
+        </div>
+        <p style="color:var(--text2);font-size:.88rem;line-height:1.68">${report.primary_issue?.analysis}</p>
+      </div>
+    </div>
+    <!-- Secondary Issues -->
+    ${report.secondary_issues?.length?`<div style="padding:18px 20px;border-bottom:1px solid var(--border);background:var(--bg2)">
+      <div class="slbl" style="margin-bottom:12px">SECONDARY OBSERVATIONS</div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        ${report.secondary_issues.map(iss=>`<div style="padding:12px 14px;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r)">
+          <div style="font-family:var(--head);font-size:.62rem;letter-spacing:.08em;color:var(--blue);margin-bottom:5px">${iss.title}</div>
+          <p style="color:var(--text2);font-size:.85rem;line-height:1.62">${iss.analysis}</p>
+        </div>`).join('')}
+      </div>
+    </div>`:''}
+    <!-- Drills -->
+    ${report.drills?.length?`<div style="padding:18px 20px;border-bottom:1px solid var(--border);background:var(--bg3)">
+      <div class="slbl" style="margin-bottom:12px">PRESCRIBED TRAINING DRILLS</div>
+      <div style="display:flex;flex-direction:column;gap:12px">
+        ${report.drills.map((d,i)=>`<div style="padding:14px 16px;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r);border-left:3px solid var(--green)">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:7px;flex-wrap:wrap;gap:6px">
+            <span style="font-family:var(--head);font-size:.65rem;letter-spacing:.1em;color:var(--green)">DRILL ${i+1}: ${d.name}</span>
+            <span style="font-family:var(--mono);font-size:.7rem;color:var(--amber)">${d.duration}</span>
+          </div>
+          <p style="color:var(--text2);font-size:.86rem;line-height:1.65;margin-bottom:7px">${d.description}</p>
+          <div style="font-family:var(--head);font-size:.52rem;color:var(--text3)">TARGETS: <span style="color:var(--blue)">${d.target_metric}</span></div>
+        </div>`).join('')}
+      </div>
+    </div>`:''}
+    <!-- Equipment -->
+    ${report.equipment_checks?.length?`<div style="padding:18px 20px;border-bottom:1px solid var(--border);background:var(--bg2)">
+      <div class="slbl" style="margin-bottom:12px">EQUIPMENT CHECKLIST</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        ${report.equipment_checks.map(c=>`<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:6px">
+          <span style="color:var(--amber);flex-shrink:0;margin-top:1px">◈</span>
+          <span style="color:var(--text2);font-size:.88rem;line-height:1.55">${c}</span>
+        </div>`).join('')}
+      </div>
+    </div>`:''}
+    <!-- Goals -->
+    ${report.two_week_goals?.length?`<div style="padding:18px 20px;border-bottom:1px solid var(--border);background:var(--bg3)">
+      <div class="slbl" style="margin-bottom:12px">2-WEEK GOALS</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        ${report.two_week_goals.map((g,i)=>`<div style="display:flex;align-items:flex-start;gap:12px;padding:10px 14px;background:var(--bg2);border:1px solid var(--border2);border-radius:6px">
+          <span style="font-family:var(--head);font-size:.7rem;color:var(--green);flex-shrink:0;font-weight:700;min-width:24px">0${i+1}</span>
+          <span style="color:var(--text);font-size:.88rem;line-height:1.55">${g}</span>
+        </div>`).join('')}
+      </div>
+    </div>`:''}
+    <!-- Mental -->
+    ${report.mental_game?`<div style="padding:18px 20px;border-bottom:1px solid var(--border);background:var(--bg2)">
+      <div class="slbl" style="margin-bottom:10px;color:var(--purple)">MENTAL GAME</div>
+      <p style="color:var(--text2);font-size:.9rem;line-height:1.72;font-style:italic">${report.mental_game}</p>
+    </div>`:''}
+    <!-- Coach's Note -->
+    ${report.coaches_note?`<div style="padding:18px 20px;border-bottom:1px solid var(--border);background:var(--bg3)">
+      <div class="slbl" style="margin-bottom:10px;color:var(--amber)">COACH'S NOTE</div>
+      <p style="color:var(--text);font-size:.92rem;line-height:1.72;font-style:italic;padding-left:14px;border-left:2px solid var(--amber)">${report.coaches_note}</p>
+    </div>`:''}
+    <!-- Footer -->
+    <div style="padding:16px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--bg2)">
+      <div style="font-family:var(--head);font-size:.45rem;letter-spacing:.1em;color:var(--text4)">AIRSCAN PRO · AI COACH · Claude AI</div>
+      <button class="btn btn-danger" style="font-size:.58rem;padding:8px 14px;flex-shrink:0" onclick="if(confirm('Clear saved API key?')){clearAIKey();toast('API key cleared');}">CLEAR KEY</button>
+    </div>
+  </div>
+</div>`;
+}
 
 // ══════════════════════════════════════════════════════════════════
 //  APP STATE
@@ -697,21 +1020,22 @@ function drawMPIChart(canvasEl,sessions){
 const App={
   view:'home',imgUrl:null,stream:null,
   cfg:Object.assign({type:'AIR_PISTOL_10M',caliber:'.177 (4.5mm)',mode:'decimal',shots:10}, DB.prefs.cfg||{}),
-  procStep:0,results:null,
+  results:null,
   viewSession:null,
+  alignData:null,  // {cx, cy, pxMm, type} in image pixel space — set by alignment screen
+  aiLoading:false,showAIReport:false,aiReport:null,aiReportSession:null,
   setState(p){Object.assign(this,p);render();},
   saveCfg(){DB.prefs={...DB.prefs,cfg:{...this.cfg}};},
   // called after switching user — reset all session state
   switchUser(id){
     Users.switchTo(id);
     this.results=null;this.viewSession=null;this.imgUrl=null;
+    this.aiLoading=false;this.showAIReport=false;this.aiReport=null;this.aiReportSession=null;
     this.cfg=Object.assign({type:'AIR_PISTOL_10M',caliber:'.177 (4.5mm)',mode:'decimal',shots:10},DB.prefs.cfg||{});
     this.setState({view:'home'});
   },
   get sessions(){return DB.sessions;}
 };
-const STEPS=['Loading image','Preprocessing','Perspective alignment','Ring detection','Bullet detection','Calculating scores','Rendering overlay'];
-
 // ══════════════════════════════════════════════════════════════════
 //  PIPELINE — go straight to manual editor, no auto-detection
 // ══════════════════════════════════════════════════════════════════
@@ -734,10 +1058,6 @@ const I={
   up:`<svg width="19" height="19" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>`,
   cam:`<svg width="19" height="19" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>`,
   scan:`<svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>`,
-  chart:`<svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>`,
-  hist:`<svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
-  bar:`<svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>`,
-  report:`<svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>`,
   trash:`<svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M9 6V4h6v2"/></svg>`,
   dl:`<svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`,
   bolt:`<svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`,
@@ -761,7 +1081,6 @@ function pgHome(){
   const s=DB.sessions,cnt=s.length;
   const best=cnt?Math.max(...s.filter(x=>x.stats).map(x=>pct(x.stats.totalScore,x.stats.maxScore))):null;
   const cu=Users.current;
-  const allUsers=Users.all;
   return`
 <div class="scroll-page" style="min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:44px 24px calc(90px + env(safe-area-inset-bottom,0px))">
   <!-- Top bar: user switcher + help -->
@@ -852,12 +1171,14 @@ function pgConfigure(){
   return`
 <div class="scroll-page" style="min-height:100vh;padding-bottom:calc(90px + env(safe-area-inset-bottom,0px))">
   <div class="ph">
-    <button class="btn-icon btn" onclick="App.setState({view:'home'})">${I.back}</button>
+    <button class="btn-icon btn" onclick="App.setState({view:App.imgUrl?'align':'home'})">${I.back}</button>
     <span class="ph-title">CONFIGURE ANALYSIS</span>
   </div>
   ${App.imgUrl?`<div style="max-height:175px;overflow:hidden;border-bottom:1px solid var(--border);background:#000;position:relative">
     <div style="position:absolute;inset:0;background:linear-gradient(rgba(0,212,255,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(0,212,255,0.03) 1px,transparent 1px);background-size:32px 32px;pointer-events:none"></div>
     <img src="${App.imgUrl}" style="width:100%;max-height:175px;object-fit:contain;display:block;opacity:.88"/>
+    ${App.alignData?`<div style="position:absolute;bottom:8px;right:8px;background:rgba(0,255,136,.15);border:1px solid rgba(0,255,136,.5);border-radius:20px;padding:3px 10px;font-family:var(--head);font-size:.48rem;letter-spacing:.1em;color:var(--green)">✓ ALIGNED</div>`:`<div style="position:absolute;bottom:8px;right:8px;background:rgba(255,176,32,.12);border:1px solid rgba(255,176,32,.4);border-radius:20px;padding:3px 10px;font-family:var(--head);font-size:.48rem;letter-spacing:.1em;color:var(--amber)">⚠ NOT ALIGNED</div>`}
+    <button onclick="App.alignData=null;App.setState({view:'align'})" style="position:absolute;bottom:8px;left:8px;background:rgba(0,0,0,.65);border:1px solid rgba(255,255,255,.25);border-radius:20px;padding:4px 12px;font-family:var(--head);font-size:.48rem;letter-spacing:.1em;color:rgba(255,255,255,.75);cursor:pointer;touch-action:manipulation">↩ RE-ALIGN</button>
   </div>`:''}
   <div style="padding:20px 16px;display:flex;flex-direction:column;gap:20px">
     <div class="fade-up">
@@ -881,44 +1202,6 @@ function pgConfigure(){
     <button class="btn btn-primary fade-up s3" style="width:100%;padding:18px;font-size:.8rem;margin-top:4px" onclick="runAnalysis(App.imgUrl)">
       ${I.edit}&nbsp; PLACE SHOTS MANUALLY
     </button>
-  </div>
-</div>`;
-}
-
-// ══════════════════════════════════════════════════════════════════
-//  PAGE: PROCESSING
-// ══════════════════════════════════════════════════════════════════
-function pgProcessing(){
-  return`
-<div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 24px">
-  <div style="position:relative;margin-bottom:28px">
-    <svg width="90" height="90" viewBox="0 0 90 90" style="animation:spin 2.5s linear infinite">
-      <circle cx="45" cy="45" r="41" stroke="var(--border2)" stroke-width="3" fill="none"/>
-      <circle cx="45" cy="45" r="41" stroke="var(--green)" stroke-width="3" fill="none" stroke-dasharray="96 162" stroke-linecap="round"/>
-    </svg>
-    <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center">
-      <svg width="36" height="36" viewBox="0 0 78 78" fill="none">
-        <circle cx="39" cy="39" r="5" fill="var(--green)"/>
-        <line x1="4" y1="39" x2="28" y2="39" stroke="var(--green)" stroke-width="2.5"/>
-        <line x1="50" y1="39" x2="74" y2="39" stroke="var(--green)" stroke-width="2.5"/>
-        <line x1="39" y1="4" x2="39" y2="28" stroke="var(--green)" stroke-width="2.5"/>
-        <line x1="39" y1="50" x2="39" y2="74" stroke="var(--green)" stroke-width="2.5"/>
-      </svg>
-    </div>
-  </div>
-  <h2 style="font-family:var(--head);font-size:.92rem;letter-spacing:.22em;margin-bottom:6px">ANALYZING</h2>
-  <p style="font-family:var(--mono);font-size:.75rem;color:var(--green);margin-bottom:28px;animation:pulse 1.1s ease-in-out infinite">${STEPS[App.procStep]||'Finalizing…'}</p>
-  <div style="width:100%;max-width:290px">
-    ${STEPS.map((s,i)=>{
-      const done=i<App.procStep,curr=i===App.procStep;
-      return`<div class="pstep" style="opacity:${i>App.procStep?0.25:1}">
-        <div class="pdot" style="border-color:${done?'var(--green)':curr?'var(--amber)':'var(--border2)'};background:${done?'var(--green-dim)':'transparent'}">
-          ${done?`<span style="color:var(--green)">${I.ok}</span>`:''}
-          ${curr?`<div style="width:7px;height:7px;border-radius:50%;background:var(--amber);animation:pulse .8s ease-in-out infinite"></div>`:''}
-        </div>
-        <span style="font-family:var(--mono);font-size:.7rem;color:${done?'var(--green)':curr?'var(--amber)':'var(--text4)'}">${s}</span>
-      </div>`;
-    }).join('')}
   </div>
 </div>`;
 }
@@ -976,8 +1259,17 @@ function pgResults(r=App.results){
     </div>
     <img src="${overlayUrl}" style="width:100%;display:block;cursor:zoom-in" onclick="window.open(this.src)" title="Click to open full size"/>
   </div>`:''}
+  <!-- IFFS Target Card Visualization — shown only when viewing a saved history session -->
+  ${isHistory&&stats&&scored.length>0?(()=>{const cardSvg=buildShotCardSVG(scored,stats,r);return cardSvg?`
+  <div class="fade-up s2" style="border-bottom:1px solid var(--border)">
+    <div style="padding:10px 16px;display:flex;align-items:center;justify-content:space-between">
+      <span style="font-family:var(--head);font-size:.52rem;letter-spacing:.12em;color:var(--text3)">IFFS TARGET CARD</span>
+      <span style="font-size:.6rem;color:var(--text4)">● 9-10 &nbsp;● 8 &nbsp;● 7 &nbsp;● &lt;7 &nbsp;<span style="color:#FFD700">+ MPI</span></span>
+    </div>
+    <div style="padding:0 16px 16px">${cardSvg}</div>
+  </div>`:''})():''}
   <!-- Shot Table -->
-  ${scored.length>0?`<div class="fade-up s2" style="border-bottom:1px solid var(--border)">
+  ${scored.length>0?`<div class="fade-up s3" style="border-bottom:1px solid var(--border)">
     <div style="padding:12px 16px;font-family:var(--head);font-size:.52rem;letter-spacing:.16em;color:var(--text3)">SHOT BREAKDOWN</div>
     <div style="overflow-x:auto">
       <table class="stbl">
@@ -991,10 +1283,33 @@ function pgResults(r=App.results){
       </table>
     </div>
   </div>`:''}
-  <!-- Export -->
-  <div class="fade-up s3" style="padding:16px;display:flex;gap:10px">
-    ${!isHistory?`<button class="btn btn-ghost" style="flex:1" onclick="dlImg('${overlayUrl||''}')">${I.dl} Share Image</button>`:''}
-    <button class="btn btn-ghost" style="flex:1" onclick="dlCSV()">${I.dl} Share CSV</button>
+  <!-- Export & AI Coach -->
+  <div class="fade-up s4" style="padding:16px;display:flex;flex-direction:column;gap:10px">
+    <div style="display:flex;gap:10px">
+      ${!isHistory?`<button class="btn btn-ghost" style="flex:1" onclick="dlImg('${overlayUrl||''}')">${I.dl} Share Image</button>`:''}
+      <button class="btn btn-ghost" style="flex:1" onclick="dlCSV()">${I.dl} Share CSV</button>
+    </div>
+    <!-- AI Coach Report -->
+    ${stats&&scored.length>0?`
+    <div style="background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);overflow:hidden">
+      <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px">
+        <svg width="18" height="18" fill="none" stroke="var(--purple)" stroke-width="2"><circle cx="9" cy="9" r="7"/><path d="M9 6v3l2 2"/><circle cx="9" cy="9" r="2" fill="var(--purple)" stroke="none"/></svg>
+        <span style="font-family:var(--head);font-size:.62rem;letter-spacing:.14em;color:var(--purple)">AI COACH REPORT</span>
+        ${getAIKey()?`<span style="font-family:var(--head);font-size:.42rem;padding:2px 6px;border-radius:3px;background:rgba(168,85,247,.15);color:var(--purple);border:1px solid rgba(168,85,247,.3);margin-left:auto">KEY SAVED</span>`:''}
+      </div>
+      <div style="padding:12px 16px">
+        <p style="color:var(--text2);font-size:.85rem;line-height:1.6;margin-bottom:12px">Generate a professional drill-specific coaching analysis powered by Claude AI — based on your shot placement, grouping, MPI drift and historical trends.</p>
+        ${App.aiLoading?`<div style="display:flex;align-items:center;gap:12px;padding:14px;background:rgba(168,85,247,.08);border:1px solid rgba(168,85,247,.25);border-radius:8px">
+          <div style="width:18px;height:18px;border-radius:50%;border:2px solid var(--purple);border-top-color:transparent;animation:spin 0.8s linear infinite;flex-shrink:0"></div>
+          <span style="font-family:var(--head);font-size:.65rem;letter-spacing:.1em;color:var(--purple)">GENERATING COACHING REPORT…</span>
+        </div>`:
+        `<button class="btn" style="width:100%;background:linear-gradient(135deg,rgba(168,85,247,.18),rgba(168,85,247,.08));border:1px solid var(--purple);color:var(--purple);padding:14px;font-size:.75rem;font-weight:700;letter-spacing:.1em"
+          onclick="generateAICoachReport(App.viewSession||App.results,DB.sessions)">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0"><circle cx="8" cy="8" r="6"/><path d="M5.5 8h5M8 5.5v5"/></svg>
+          &nbsp;GENERATE AI COACHING REPORT
+        </button>`}
+      </div>
+    </div>`:''}
   </div>
 </div>`;}
 
@@ -1056,22 +1371,40 @@ const Ed={
     // image
     ctx.save();ctx.translate(this.tx,this.ty);ctx.scale(this.scale,this.scale);
     ctx.drawImage(this.img,0,0);ctx.restore();
-    // ring guides
-    const maxR=Math.min(this.imgW,this.imgH)*0.47;
-    const[icx,icy]=[this.imgW/2,this.imgH/2];
+    // ring guides — use alignData (always set for real images); fallback is demo-only
+    const ad=App.alignData;
+    const imgCx=ad?ad.cx:this.imgW/2;
+    const imgCy=ad?ad.cy:this.imgH/2;
+    const spec=getISSFTargetSpec(ad?.type||App.cfg?.type||'AIR_PISTOL_10M');
+    // pxMm from alignment → maxR in image pixels = pxMm × outerRMm
+    // Fallback (demo only): estimate from image size — safe only for centred synthetic targets
+    const maxR=ad?(ad.pxMm*spec.outerRMm):Math.min(this.imgW,this.imgH)*0.47;
     for(let i=1;i<=10;i++){
-      const r=maxR*i/10;
-      const[scx2,scy2]=this.i2s(icx,icy);
+      const r=maxR*spec.steps[10-i]/spec.outerRMm;
+      const[scx2,scy2]=this.i2s(imgCx,imgCy);
       ctx.beginPath();ctx.arc(scx2,scy2,r*this.scale,0,Math.PI*2);
       ctx.strokeStyle=`rgba(0,220,120,${i===10?.5:.18})`;ctx.lineWidth=i===10?1.5:.7;ctx.stroke();
-      // ring labels at current zoom
-      if(this.scale>1.8&&i>1){
-        const fs=Math.max(9,maxR*this.scale*0.028);
+      // ring labels 1-8 at 4 positions when zoomed in — ISSF (no 9 or 10)
+      const rScore=i;
+      if(this.scale>1.8&&rScore>=1&&rScore<=8){
+        const rPx=r*this.scale;
+        const rInnerPx=(maxR*spec.steps[10-i+1 < 10 ? 10-i+1 : 9]/spec.outerRMm)*this.scale;
+        const rMid=(rPx+(rInnerPx||0))/2;
+        const fs=Math.max(8,maxR*this.scale*0.026);
         ctx.font=`bold ${fs}px monospace`;ctx.textAlign='center';ctx.textBaseline='middle';
-        ctx.fillStyle='rgba(0,255,136,0.55)';
-        ctx.fillText(10-i+1,scx2,scy2-r*this.scale+fs*0.9);
+        ctx.fillStyle='rgba(0,255,136,0.6)';
+        ctx.fillText(rScore,scx2-rMid,scy2); // left
+        ctx.fillText(rScore,scx2+rMid,scy2); // right
+        ctx.fillText(rScore,scx2,scy2-rMid); // top
+        ctx.fillText(rScore,scx2,scy2+rMid); // bottom
       }
     }
+    // aligned centre crosshair
+    const[acx,acy]=this.i2s(imgCx,imgCy);
+    const chs=10;
+    ctx.strokeStyle='rgba(255,215,0,0.55)';ctx.lineWidth=1.5;ctx.setLineDash([4,3]);
+    ctx.beginPath();ctx.moveTo(acx-chs,acy);ctx.lineTo(acx+chs,acy);ctx.moveTo(acx,acy-chs);ctx.lineTo(acx,acy+chs);ctx.stroke();
+    ctx.setLineDash([]);
     // shots
     this.shots.forEach((s,i)=>{
       const[sx,sy]=this.i2s(s.cx,s.cy);
@@ -1362,9 +1695,7 @@ function pgHistory(){
     return`<div class="fade-up" style="animation-delay:${i*0.035}s;display:flex;align-items:center;gap:14px;padding:13px 16px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s"
        onmouseenter="this.style.background='var(--bg2)'" onmouseleave="this.style.background=''"
        onclick="openSession(${sess.id})">
-      ${sess.overlayUrl?`<img src="${sess.overlayUrl}" style="width:54px;height:54px;border-radius:6px;object-fit:cover;border:1px solid var(--border2);flex-shrink:0"/>`
-        :`<div style="width:54px;height:54px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);display:flex;align-items:center;justify-content:center;color:var(--text4);flex-shrink:0">${I.scan}</div>`}
-      <div style="flex:1;min-width:0">
+      ${(()=>{const thumb=sess.stats&&sess.scored?.length?buildShotCardThumb(sess.scored,sess.stats,sess):null;return thumb?`<div style="width:54px;height:54px;flex-shrink:0;overflow:hidden">${thumb}</div>`:sess.overlayUrl?`<img src="${sess.overlayUrl}" style="width:54px;height:54px;border-radius:6px;object-fit:cover;border:1px solid var(--border2);flex-shrink:0"/>`:`<div style="width:54px;height:54px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);display:flex;align-items:center;justify-content:center;color:var(--text4);flex-shrink:0">${I.scan}</div>`;})()}      <div style="flex:1;min-width:0">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px">
           <span style="font-family:var(--head);font-size:.62rem;letter-spacing:.08em">SESSION ${s.length-i}</span>
           <span style="font-family:var(--mono);font-size:1.05rem;color:${sc};font-weight:700">${sess.stats?.totalScore??'—'}</span>
@@ -1793,49 +2124,33 @@ function buildRecommendations(ss,overallAvg,avgSpread,avgRadius,improving){
 // ══════════════════════════════════════════════════════════════════
 //  CAMERA PAGE
 // ══════════════════════════════════════════════════════════════════
-function pgCamera(){
-  return`
-<div style="position:fixed;inset:0;background:#000;display:flex;flex-direction:column;z-index:500">
-  <!-- Viewfinder fills all available space -->
-  <div style="flex:1;position:relative;overflow:hidden;min-height:0">
-    <video id="camvid" autoplay playsinline muted style="width:100%;height:100%;object-fit:cover;display:block"></video>
-    <!-- Top bar -->
-    <div style="position:absolute;top:0;left:0;right:0;padding:14px 16px;display:flex;align-items:center;gap:12px;background:linear-gradient(rgba(0,0,0,.7),transparent);z-index:10">
-      <button class="btn-icon btn" onclick="stopCam()" style="background:rgba(0,0,0,.5);border-color:rgba(255,255,255,.3);color:#fff">${I.back}</button>
-      <span style="font-family:var(--head);font-size:.72rem;letter-spacing:.2em;color:#fff">CAMERA</span>
-    </div>
-    <!-- Crosshair -->
-    <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none">
-      <svg width="210" height="210" viewBox="0 0 240 240" fill="none" opacity=".55">
-        <circle cx="120" cy="120" r="112" stroke="var(--green)" stroke-width="1" stroke-dasharray="8 5"/>
-        <line x1="12" y1="120" x2="80" y2="120" stroke="var(--green)" stroke-width="1.5"/>
-        <line x1="160" y1="120" x2="228" y2="120" stroke="var(--green)" stroke-width="1.5"/>
-        <line x1="120" y1="12" x2="120" y2="80" stroke="var(--green)" stroke-width="1.5"/>
-        <line x1="120" y1="160" x2="120" y2="228" stroke="var(--green)" stroke-width="1.5"/>
-        <circle cx="120" cy="120" r="4" stroke="var(--green)" stroke-width="1.5"/>
-        <path d="M32 58 L32 32 L58 32" stroke="var(--green)" stroke-width="2" fill="none"/>
-        <path d="M182 32 L208 32 L208 58" stroke="var(--green)" stroke-width="2" fill="none"/>
-        <path d="M32 182 L32 208 L58 208" stroke="var(--green)" stroke-width="2" fill="none"/>
-        <path d="M208 182 L208 208 L182 208" stroke="var(--green)" stroke-width="2" fill="none"/>
-      </svg>
-    </div>
-  </div>
-  <!-- Shutter bar — fixed height, always visible above browser chrome -->
-  <div style="flex-shrink:0;height:130px;background:rgba(0,0,0,.92);display:flex;align-items:center;justify-content:center;gap:52px;border-top:1px solid rgba(255,255,255,.08)">
-    <button onclick="stopCam()" style="width:48px;height:48px;border-radius:50%;background:rgba(255,255,255,.12);border:1.5px solid rgba(255,255,255,.35);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center">
-      <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="15 18 9 12 15 6"/></svg>
-    </button>
-    <!-- Shutter button -->
-    <button onclick="capturePhoto()" style="width:80px;height:80px;border-radius:50%;background:transparent;border:5px solid #fff;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:transform .1s;-webkit-tap-highlight-color:transparent" onpointerdown="this.style.transform='scale(.9)'" onpointerup="this.style.transform='scale(1)'">
-      <div style="width:64px;height:64px;border-radius:50%;background:#fff"></div>
-    </button>
-    <div style="width:48px;height:48px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px">
-      <div style="font-family:var(--head);font-size:.4rem;letter-spacing:.1em;color:rgba(255,255,255,.35)">HOLD</div>
-      <div style="font-family:var(--head);font-size:.4rem;letter-spacing:.1em;color:rgba(255,255,255,.35)">STEADY</div>
-    </div>
-  </div>
-</div>`;
+function buildCameraOverlaySVG(type){
+  const spec=getISSFTargetSpec(type||'AIR_PISTOL_10M');
+  const S=1000;
+  const cx=S/2, cy=S/2;
+  // Use same proportion as AlignEng.fixedR (42% of shorter dim) so the camera
+  // live-view rings are visually consistent with the alignment screen rings.
+  // S is square so Math.min(S,S)*0.42 = S*0.42.
+  const maxR=S*0.42;
+  const scale=maxR/spec.outerRMm;
+
+  // all rings
+  for(let i=0;i<10;i++){
+    const r=spec.steps[i]*scale;
+    const sw=i===0?3:1.8;
+    svg+=`<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="rgba(0,255,120,0.75)" stroke-width="${sw}"/>`;
+  }
+
+  // centre crosshair
+  svg+=`<line x1="${cx-20}" y1="${cy}" x2="${cx+20}" y2="${cy}" stroke="rgba(0,255,120,0.9)" stroke-width="2"/>`;
+  svg+=`<line x1="${cx}" y1="${cy-20}" x2="${cx}" y2="${cy+20}" stroke="rgba(0,255,120,0.9)" stroke-width="2"/>`;
+
+  svg+=`</svg>`;
+  return svg;
 }
+function setCamType(t){App.cfg=Object.assign({},App.cfg,{type:t});DB.prefs=Object.assign({},DB.prefs,{cfg:App.cfg});const ov=document.getElementById('cam-overlay');if(ov)ov.innerHTML=buildCameraOverlaySVG(t);const chips=document.querySelectorAll('.cam-chip');chips.forEach(c=>{c.style.background=c.dataset.t===t?'rgba(0,255,136,0.22)':'rgba(255,255,255,0.08)';c.style.borderColor=c.dataset.t===t?'rgba(0,255,136,0.7)':'rgba(255,255,255,0.2)';c.style.color=c.dataset.t===t?'var(--green)':'rgba(255,255,255,0.55)';});}
+// pgCamera is intentionally removed — camera UI is injected directly by startCam()
+// This bypasses render() entirely, which is required for reliable iOS Safari camera support.
 
 // ══════════════════════════════════════════════════════════════════
 //  PAGE: SHOOTER PROFILES
@@ -1937,12 +2252,32 @@ function exportUserData(id,name){
   const prefs=JSON.parse(localStorage.getItem('ts_prefs_'+id)||'{}');
   const payload={version:1,exported:new Date().toISOString(),shooter:name,sessions,prefs};
   const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
-  const filename=`airscan_${name.replace(/\s+/g,'_')}_backup_${new Date().toISOString().slice(0,10)}.json`;
-  const file=new File([blob],filename,{type:'application/json'});
-  if(navigator.share&&navigator.canShare&&navigator.canShare({files:[file]})){
-    navigator.share({title:`AirScan Backup — ${name}`,files:[file]}).catch(()=>_fallbackDl(URL.createObjectURL(blob),filename));
-  } else {_fallbackDl(URL.createObjectURL(blob),filename);}
-  toast('Backup saved for '+name+'!');
+  const filename=`airscan_${name.replace(/[^a-z0-9]/gi,'_')}_backup_${new Date().toISOString().slice(0,10)}.json`;
+  const doFallback=()=>{_fallbackDl(URL.createObjectURL(blob),filename);};
+  const tryShare=async()=>{
+    const file=new File([blob],filename,{type:'application/json'});
+    if(navigator.share&&navigator.canShare&&navigator.canShare({files:[file]})){
+      try{
+        await navigator.share({title:`AirScan Backup — ${name}`,files:[file]});
+        toast('Backup shared for '+name+'!');
+      } catch(e){
+        // AbortError = user dismissed share sheet — don't fallback to download
+        if(e.name!=='AbortError')doFallback();
+        // else: user cancelled, do nothing
+      }
+    } else if(navigator.share){
+      // Share supported but file sharing not (some desktop browsers)
+      try{
+        await navigator.share({title:`AirScan Backup — ${name}`,text:JSON.stringify(payload,null,2)});
+        toast('Backup shared for '+name+'!');
+      } catch(e){if(e.name!=='AbortError')doFallback();}
+    } else {
+      // No share API — direct download
+      doFallback();
+      toast('Backup saved for '+name+'!');
+    }
+  };
+  tryShare();
 }
 // ══════════════════════════════════════════════════════════════════
 function pgGuide(){
@@ -1960,20 +2295,25 @@ function pgGuide(){
     {
       num:'03',color:'var(--amber)',
       title:'Upload or Capture the Image',
-      body:'Tap UPLOAD TARGET IMAGE to select a photo from your gallery, or tap USE CAMERA to shoot directly. Hold the phone parallel to the target — avoid angles. The target should fill most of the frame. Natural light or a bright room works best; avoid shadows across the target face.'
+      body:'Tap UPLOAD TARGET IMAGE to select a photo from your gallery, or tap USE CAMERA to shoot directly. On the camera screen, hold the phone steady and align the physical target to the green ring overlay before shooting — this gives you a head-start on alignment.'
     },
     {
       num:'04',color:'var(--green)',
+      title:'Align the Target to Fixed Rings',
+      body:'After uploading or capturing, the ALIGN screen shows fixed green scoring rings at the centre. Drag the photo with one finger to position the target bullseye under the crosshair. Pinch with two fingers to zoom the photo until the target\'s outermost ring matches the green outermost ring. Rings never move — only the image does. This ensures consistent, repeatable scoring no matter what angle or distance the photo was taken from.'
+    },
+    {
+      num:'05',color:'var(--blue)',
       title:'Configure Your Session',
       body:'Select your target type (10m Air Pistol, 10m Air Rifle, etc.), caliber (.177 is the ISSF standard), and scoring method (ISSF Decimal is recommended for competition training). Your choices are remembered separately for each shooter profile.'
     },
     {
-      num:'05',color:'var(--blue)',
+      num:'06',color:'var(--amber)',
       title:'Place Shot Markers',
       body:'The editor opens automatically. Pinch to zoom in close, then tap exactly on each pellet hole to place a marker. Drag to reposition. Use UNDO if you make a mistake. Always zoom to at least 200–300% before placing — small placement errors directly affect your score accuracy.'
     },
     {
-      num:'06',color:'var(--amber)',
+      num:'07',color:'var(--green)',
       title:'Review Results & Track Progress',
       body:'Tap APPLY to calculate scores. You\'ll see total score, MPI (Mean Point of Impact), extreme spread, and a full shot breakdown. Every session saves automatically to your profile. After 2+ sessions the STATS tab shows your score trends; after 3+ the REPORT tab gives a full monthly breakdown.'
     },
@@ -2142,9 +2482,8 @@ function render(){
   const root=document.getElementById('root');
   let html='';
   if(App.view==='home')       html=pgHome();
-  else if(App.view==='camera')     html=pgCamera();
+  else if(App.view==='align')       html=pgAlign();
   else if(App.view==='configure')  html=pgConfigure();
-  else if(App.view==='processing') html=pgProcessing();
   else if(App.view==='results')    html=pgResults(App.viewSession||App.results);
   else if(App.view==='history')    html=pgHistory();
   else if(App.view==='progress')   html=pgProgress();
@@ -2152,8 +2491,17 @@ function render(){
   else if(App.view==='editor')     html=pgEditor();
   else if(App.view==='profiles')   html=pgProfiles();
   else if(App.view==='guide')      html=pgGuide();
-  root.innerHTML=html+renderNav();
-  if(App.view==='camera'){const v=document.getElementById('camvid');if(v&&App.stream)v.srcObject=App.stream;}
+  root.innerHTML=html+(App.view==='align'?'':renderNav());
+  // Inject AI report overlay on top if active
+  if(App.showAIReport&&App.aiReport){
+    const overlay=document.createElement('div');
+    overlay.innerHTML=renderAIReportOverlay(App.aiReport,App.aiReportSession);
+    const el=overlay.firstElementChild;
+    if(el)document.body.appendChild(el);
+  }
+  if(App.view==='align'){
+    requestAnimationFrame(()=>setupAlignEvents());
+  }
   if(App.view==='progress'){
     const ss=DB.sessions.filter(s=>s.stats&&s.scored?.length>0);
     requestAnimationFrame(()=>{
@@ -2186,8 +2534,8 @@ function render(){
 //  HANDLERS
 // ══════════════════════════════════════════════════════════════════
 function navTo(id){App.setState({view:id,viewSession:null});}
-function onFile(e){const f=e.target.files[0];if(!f)return;App.imgUrl=URL.createObjectURL(f);App.setState({view:'configure'});}
-function runDemo(){const url=genDemo(8);App.imgUrl=url;runAnalysis(url);}
+function onFile(e){const f=e.target.files[0];if(!f)return;App.imgUrl=URL.createObjectURL(f);App.alignData=null;App.setState({view:'align'});}
+function runDemo(){const url=genDemo(8);App.imgUrl=url;App.alignData=null;runAnalysis(url);}
 
 // Instant chip selection — no full re-render, just toggle classes + save
 const CFG_GROUPS={
@@ -2214,48 +2562,539 @@ function exportData(){
   exportUserData(DB._uid,name);
 }
 function importData(){
-  const inp=document.createElement('input');inp.type='file';inp.accept='.json,application/json';
+  const inp=document.createElement('input');
+  inp.type='file';inp.accept='.json,application/json';
+  inp.style.display='none';
+  // Must be in DOM for Firefox + iOS PWA to reliably fire onchange
+  document.body.appendChild(inp);
+
   inp.onchange=e=>{
-    const f=e.target.files[0];if(!f)return;
+    const f=e.target.files[0];
+    document.body.removeChild(inp); // clean up DOM
+    if(!f)return;
+    if(!f.name.endsWith('.json')&&f.type!=='application/json'){
+      toast('Please select a .json backup file');return;
+    }
+    if(f.size>10*1024*1024){toast('Backup file too large (max 10 MB)');return;}
     const reader=new FileReader();
     reader.onload=ev=>{
       try{
-        const d=JSON.parse(ev.target.result);
-        if(!d.sessions||!Array.isArray(d.sessions))throw new Error('Invalid backup file');
+        const raw=ev.target.result;
+        let d;
+        try{d=JSON.parse(raw);}
+        catch{toast('File is not valid JSON — cannot restore');return;}
+        // Structure validation
+        if(!d||typeof d!=='object'){toast('Invalid backup: not an object');return;}
+        if(!Array.isArray(d.sessions)){toast('Invalid backup: missing sessions array');return;}
+        if(d.version&&d.version!==1){toast(`Unsupported backup version: ${d.version}`);return;}
+        // Point 7: Guard against maliciously large or corrupted backup files
+        if(d.sessions.length>5000){toast('Backup too large (max 5000 sessions)');return;}
+        // Filter out sessions missing critical fields to avoid corrupt data
+        const valid=d.sessions.filter(s=>s&&typeof s.id!=='undefined'&&Array.isArray(s.scored));
+        const invalid=d.sessions.length-valid.length;
         const existing=DB.sessions;
         const existingIds=new Set(existing.map(s=>s.id));
-        const merged=[...existing,...d.sessions.filter(s=>!existingIds.has(s.id))];
-        DB.sessions=merged;
-        if(d.prefs)DB.prefs=d.prefs;
-        toast(`Restored ${d.sessions.length} sessions successfully!`);
-        render();
-      }catch{toast('Invalid backup file — could not restore');}
+        const newSessions=valid.filter(s=>!existingIds.has(s.id));
+        const dupes=valid.length-newSessions.length;
+        // Prepend new sessions — never overwrite existing ones
+        // DB.sessions setter writes to localStorage immediately — no separate save() needed
+        DB.sessions=[...newSessions,...existing];
+        // Restore prefs only if target profile is empty (fresh profile)
+        if(d.prefs&&existing.length===0)DB.prefs=d.prefs;
+        const parts=[];
+        if(newSessions.length)parts.push(`${newSessions.length} new session${newSessions.length!==1?'s':''} restored ✔`);
+        if(dupes)parts.push(`${dupes} already existed`);
+        if(invalid)parts.push(`${invalid} skipped (corrupt)`);
+        toast(parts.join(' · ')||'Nothing new to restore',3200);
+        // Point 9: Navigate to history so user immediately sees restored sessions
+        if(newSessions.length>0){
+          setTimeout(()=>navTo('history'),500);
+        } else {
+          render();
+        }
+      } catch(err){
+        console.error('importData error:',err);
+        toast('Could not restore — unexpected error');
+      }
     };
+    reader.onerror=()=>toast('Could not read file');
     reader.readAsText(f);
   };
+  // oncancel fires in modern browsers when user dismisses picker without selecting
+  inp.oncancel=()=>{if(inp.parentNode)document.body.removeChild(inp);};
   inp.click();
 }
 
+// ══════════════════════════════════════════════════════════════════
+//  ALIGNMENT ENGINE — FIXED rings, user pans/zooms the IMAGE
+//  This ensures consistent scoring regardless of how the image
+//  was captured (upload or camera at any angle/distance).
+//  Green rings are always at the same fixed position on screen.
+//  User drags/pinches the photo to line the target up with the rings.
+// ══════════════════════════════════════════════════════════════════
+const AlignEng={
+  img:null,imgW:0,imgH:0,
+  type:'AIR_PISTOL_10M',
+  // Image transform: canvas_px = image_px * scale + (tx, ty)
+  scale:1,tx:0,ty:0,
+  // Fixed ring anchor — always at canvas centre, never changes
+  fixedCx:0,fixedCy:0,fixedR:100,
+  // pan/pinch state
+  isPan:false,panSx:0,panSy:0,panTx0:0,panTy0:0,
+  pinchDist0:0,pinchScale0:1,pinchTx0:0,pinchTy0:0,pinchMx0:0,pinchMy0:0,
+
+  MIN_SCALE:0.04,MAX_SCALE:30,
+
+  init(imgUrl,type){
+    this.type=type||'AIR_PISTOL_10M';
+    this.img=null;
+    const im=new Image();
+    im.onload=()=>{
+      this.img=im;this.imgW=im.width;this.imgH=im.height;
+      this._fitInit();this.redraw();
+    };
+    im.src=imgUrl;
+  },
+  _fitInit(){
+    const canvas=document.getElementById('align-canvas');if(!canvas)return;
+    const dpr=window.devicePixelRatio||1;
+    const cssW=canvas.width/dpr,cssH=canvas.height/dpr;
+    // Fixed rings always at canvas centre — never move
+    this.fixedCx=cssW/2;this.fixedCy=cssH/2;
+    // Fixed outer ring occupies ~42% of the shorter dimension
+    this.fixedR=Math.min(cssW,cssH)*0.42;
+    // Fit image to canvas (object-fit: contain style) so user can see the whole target
+    const imgAsp=this.imgW/this.imgH,canAsp=cssW/cssH;
+    const fitScale=imgAsp>canAsp?cssW/this.imgW:cssH/this.imgH;
+    this.scale=fitScale*0.92;
+    this.tx=(cssW-this.imgW*this.scale)/2;
+    this.ty=(cssH-this.imgH*this.scale)/2;
+  },
+  redraw(){
+    const canvas=document.getElementById('align-canvas');if(!canvas)return;
+    const ctx=canvas.getContext('2d');
+    const dpr=window.devicePixelRatio||1;
+    const cw=canvas.width,ch=canvas.height;
+    const cssW=cw/dpr,cssH=ch/dpr;
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    ctx.clearRect(0,0,cssW,cssH);
+    ctx.fillStyle='#050810';ctx.fillRect(0,0,cssW,cssH);
+    // ── Draw IMAGE with pan+zoom transform at 70% opacity ──
+    // Rings are drawn after at full 100% opacity so they always dominate.
+    if(this.img){
+      ctx.save();
+      ctx.globalAlpha=0.72; // image at ~70% so rings pop through clearly
+      ctx.translate(this.tx,this.ty);
+      ctx.scale(this.scale,this.scale);
+      ctx.drawImage(this.img,0,0);
+      ctx.restore();
+      ctx.globalAlpha=1.0; // restore full opacity for rings
+    }
+    // Targeted dim only outside the outer ring circle — keeps target zone clear
+    ctx.save();
+    ctx.globalAlpha=0.22;
+    ctx.fillStyle='#050810';ctx.fillRect(0,0,cssW,cssH);
+    // Cut out the ring area so it stays bright (composite trick)
+    ctx.globalCompositeOperation='destination-out';
+    ctx.beginPath();ctx.arc(this.fixedCx,this.fixedCy,this.fixedR*1.02,0,Math.PI*2);
+    ctx.fillStyle='rgba(0,0,0,1)';ctx.fill();
+    ctx.restore();
+    // ── Draw FIXED ISSF rings (always at fixedCx, fixedCy) ──
+    const spec=getISSFTargetSpec(this.type);
+    const outerR=this.fixedR;
+    // Filled semi-transparent ring zones to help alignment
+    for(let i=9;i>=0;i--){
+      const r=outerR*(spec.steps[i]/spec.outerRMm);
+      ctx.beginPath();ctx.arc(this.fixedCx,this.fixedCy,r,0,Math.PI*2);
+      ctx.strokeStyle=i===0?'rgba(0,255,136,1)':'rgba(0,255,136,0.55)';
+      ctx.lineWidth=i===0?3:1.2;ctx.stroke();
+    }
+    // Outer boundary glow pulse effect
+    ctx.beginPath();ctx.arc(this.fixedCx,this.fixedCy,outerR,0,Math.PI*2);
+    ctx.strokeStyle='rgba(0,255,136,0.25)';ctx.lineWidth=8;ctx.stroke();
+    // Centre crosshair
+    const cs=18;
+    ctx.strokeStyle='rgba(0,255,136,0.95)';ctx.lineWidth=2;
+    ctx.beginPath();
+    ctx.moveTo(this.fixedCx-cs,this.fixedCy);ctx.lineTo(this.fixedCx+cs,this.fixedCy);
+    ctx.moveTo(this.fixedCx,this.fixedCy-cs);ctx.lineTo(this.fixedCx,this.fixedCy+cs);
+    ctx.stroke();
+    // Centre dot
+    ctx.beginPath();ctx.arc(this.fixedCx,this.fixedCy,4.5,0,Math.PI*2);
+    ctx.fillStyle='rgba(0,255,136,0.95)';ctx.fill();
+    // Ring score labels (1–8) left & right
+    const fs=Math.max(10,outerR*0.09);
+    ctx.font=`bold ${fs}px monospace`;ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillStyle='rgba(0,255,136,0.7)';
+    for(let i=0;i<8;i++){
+      const rOut=outerR*(spec.steps[i]/spec.outerRMm);
+      const rIn=outerR*(spec.steps[i+1]/spec.outerRMm);
+      const rMid=(rOut+rIn)/2;
+      const score=i+1;
+      ctx.fillText(score,this.fixedCx-rMid,this.fixedCy);
+      ctx.fillText(score,this.fixedCx+rMid,this.fixedCy);
+    }
+    // Instruction hint at bottom
+    ctx.font='bold 11px var(--head, monospace)';ctx.textAlign='center';ctx.textBaseline='top';
+    ctx.fillStyle='rgba(0,255,136,0.55)';
+    ctx.fillText('DRAG image to move  •  PINCH to zoom',cssW/2,cssH-28);
+    // Update zoom label
+    updateAlignZoom();
+  },
+  // Zoom image around a canvas-space pivot point
+  _zoomAround(pivot_x,pivot_y,factor){
+    const ns=Math.max(this.MIN_SCALE,Math.min(this.MAX_SCALE,this.scale*factor));
+    this.tx=pivot_x-(pivot_x-this.tx)*(ns/this.scale);
+    this.ty=pivot_y-(pivot_y-this.ty)*(ns/this.scale);
+    this.scale=ns;
+  },
+  // Compute alignment data in IMAGE pixel space (consumed by scoreShots/calcStats/drawOverlay)
+  // Math: rings are fixed at (fixedCx, fixedCy) in canvas CSS px.
+  // Image transform: canvas_px = image_px * scale + (tx, ty)
+  // => image_px = (canvas_px - tx) / scale
+  // Target centre in image px = ((fixedCx - tx)/scale, (fixedCy - ty)/scale)
+  // fixedR canvas px = fixedR/scale image px = spec.outerRMm mm
+  // => pxMm (image px per mm) = (fixedR / scale) / spec.outerRMm
+  getAlignData(){
+    const canvas=document.getElementById('align-canvas');
+    if(!canvas||!this.img)return null;
+    const spec=getISSFTargetSpec(this.type);
+    const imgCx=(this.fixedCx-this.tx)/this.scale;
+    const imgCy=(this.fixedCy-this.ty)/this.scale;
+    const pxMm=(this.fixedR/this.scale)/spec.outerRMm;
+    return{cx:imgCx,cy:imgCy,pxMm,type:this.type};
+  }
+};
+
+function pgAlign(){
+  const t=App.cfg?.type||'AIR_PISTOL_10M';
+  return`
+<div style="position:fixed;inset:0;background:#050810;display:flex;flex-direction:column;z-index:500">
+  <!-- Header -->
+  <div style="flex-shrink:0;display:flex;align-items:center;gap:10px;padding:max(12px,env(safe-area-inset-top,12px)) 14px 10px;background:rgba(5,8,16,.92);border-bottom:1px solid rgba(0,255,136,0.15)">
+    <button class="btn btn-icon" onclick="App.setState({view:'home'})" style="flex-shrink:0">
+      <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <div style="flex:1">
+      <div style="font-family:var(--head);font-size:.75rem;letter-spacing:.2em;color:var(--green)">ALIGN TARGET</div>
+      <div style="font-family:var(--head);font-size:.52rem;letter-spacing:.12em;color:var(--text3);margin-top:1px">Zoom &amp; drag IMAGE to match target to fixed rings</div>
+    </div>
+    <!-- Rifle / Pistol toggle (top right) -->
+    <div style="display:flex;gap:6px">
+      ${[['AIR_RIFLE_10M','RIFLE'],['AIR_PISTOL_10M','PISTOL']].map(([v,l])=>`
+      <button id="align-chip-${v}" onclick="setAlignType('${v}')"
+        style="font-family:var(--head);font-size:.55rem;letter-spacing:.1em;padding:6px 11px;border-radius:20px;cursor:pointer;touch-action:manipulation;border:1.5px solid ${v===t?'var(--green)':'rgba(255,255,255,.22)'};background:${v===t?'rgba(0,255,136,.18)':'rgba(255,255,255,.06)'};color:${v===t?'var(--green)':'rgba(255,255,255,.5)'}">
+        ${l}
+      </button>`).join('')}
+    </div>
+  </div>
+  <!-- Canvas fills remaining space -->
+  <div id="align-wrap" style="flex:1;position:relative;overflow:hidden;min-height:0;touch-action:none">
+    <canvas id="align-canvas" style="display:block;width:100%;height:100%;touch-action:none"></canvas>
+    <!-- Top badges row -->
+    <div style="position:absolute;top:10px;left:0;right:0;display:flex;justify-content:center;gap:8px;pointer-events:none">
+      <div style="background:rgba(0,0,0,.72);border:1px solid rgba(0,255,136,.35);border-radius:20px;padding:4px 13px;font-family:var(--head);font-size:.52rem;letter-spacing:.1em;color:rgba(0,255,136,.85);white-space:nowrap">
+        🔒 Rings fixed · move the photo beneath them
+      </div>
+    </div>
+    <!-- Zoom indicator bottom-left -->
+    <div style="position:absolute;bottom:12px;left:12px;background:rgba(0,0,0,.65);border:1px solid rgba(255,255,255,.18);border-radius:8px;padding:4px 10px;font-family:var(--mono);font-size:.65rem;color:rgba(255,255,255,.55);pointer-events:none">
+      <span id="align-zoom-lbl">100%</span>
+    </div>
+    <!-- Reset / Fit button bottom-right -->
+    <button onclick="AlignEng._fitInit();AlignEng.redraw();updateAlignZoom()" style="position:absolute;bottom:12px;right:12px;background:rgba(0,0,0,.65);border:1px solid rgba(0,255,136,.35);border-radius:8px;padding:6px 14px;font-family:var(--head);font-size:.58rem;letter-spacing:.1em;color:rgba(0,255,136,.75);cursor:pointer;touch-action:manipulation">
+      ↺ RESET FIT
+    </button>
+  </div>
+  <!-- Bottom action bar -->
+  <div style="flex-shrink:0;padding:14px 16px calc(14px + env(safe-area-inset-bottom,0px));background:rgba(5,8,16,.97);border-top:1px solid rgba(0,255,136,0.15);display:flex;flex-direction:column;gap:10px">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+      <div style="background:var(--bg3);border:1px solid var(--border2);border-radius:6px;padding:8px;text-align:center">
+        <div style="font-family:var(--head);font-size:.46rem;letter-spacing:.12em;color:var(--text3);margin-bottom:3px">DRAG</div>
+        <div style="font-size:.75rem">☝️</div>
+        <div style="font-family:var(--head);font-size:.46rem;color:var(--text3)">Move image</div>
+      </div>
+      <div style="background:var(--bg3);border:1px solid var(--border2);border-radius:6px;padding:8px;text-align:center">
+        <div style="font-family:var(--head);font-size:.46rem;letter-spacing:.12em;color:var(--text3);margin-bottom:3px">PINCH</div>
+        <div style="font-size:.75rem">🤏</div>
+        <div style="font-family:var(--head);font-size:.46rem;color:var(--text3)">Zoom image</div>
+      </div>
+      <div style="background:var(--bg3);border:1px solid var(--border2);border-radius:6px;padding:8px;text-align:center">
+        <div style="font-family:var(--head);font-size:.46rem;letter-spacing:.12em;color:var(--text3);margin-bottom:3px">CONFIRM</div>
+        <div style="font-size:.75rem">✅</div>
+        <div style="font-family:var(--head);font-size:.46rem;color:var(--text3)">Then continue</div>
+      </div>
+    </div>
+    <button class="btn btn-primary" style="width:100%;padding:16px;font-size:.78rem;font-weight:700" onclick="confirmAlign()">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="4 12 8 16 16 6"/></svg>
+      &nbsp;CONFIRM ALIGNMENT → CONFIGURE
+    </button>
+  </div>
+</div>`;
+}
+
+function setAlignType(t){
+  AlignEng.type=t;
+  App.cfg=Object.assign({},App.cfg,{type:t});
+  DB.prefs=Object.assign({},DB.prefs,{cfg:App.cfg});
+  // Update chip styling
+  ['AIR_RIFLE_10M','AIR_PISTOL_10M'].forEach(v=>{
+    const el=document.getElementById(`align-chip-${v}`);if(!el)return;
+    const on=v===t;
+    el.style.borderColor=on?'var(--green)':'rgba(255,255,255,.22)';
+    el.style.background=on?'rgba(0,255,136,.18)':'rgba(255,255,255,.06)';
+    el.style.color=on?'var(--green)':'rgba(255,255,255,.5)';
+  });
+  AlignEng.redraw();
+}
+
+function updateAlignZoom(){
+  const el=document.getElementById('align-zoom-lbl');
+  if(el)el.textContent=Math.round(AlignEng.scale*100)+'%';
+}
+
+function setupAlignEvents(){
+  const canvas=document.getElementById('align-canvas');
+  const wrap=document.getElementById('align-wrap');
+  if(!canvas||!wrap)return;
+  // Size canvas to wrapper
+  const dpr=window.devicePixelRatio||1;
+  const w=wrap.clientWidth,h=wrap.clientHeight;
+  canvas.width=Math.round(w*dpr);canvas.height=Math.round(h*dpr);
+  canvas.style.width=w+'px';canvas.style.height=h+'px';
+  // Init AlignEng
+  AlignEng.init(App.imgUrl,App.cfg?.type||'AIR_PISTOL_10M');
+
+  const rect=()=>canvas.getBoundingClientRect();
+  const tpos=(t,r)=>[t.clientX-r.left,t.clientY-r.top];
+  const pdist=(ts)=>Math.hypot(ts[0].clientX-ts[1].clientX,ts[0].clientY-ts[1].clientY);
+  const pmid=(ts,r)=>[(ts[0].clientX+ts[1].clientX)/2-r.left,(ts[0].clientY+ts[1].clientY)/2-r.top];
+
+  // ── MOUSE — pan image on drag, zoom on wheel ──
+  canvas.addEventListener('mousedown',e=>{
+    AlignEng.isPan=true;
+    AlignEng.panSx=e.clientX-rect().left;AlignEng.panSy=e.clientY-rect().top;
+    AlignEng.panTx0=AlignEng.tx;AlignEng.panTy0=AlignEng.ty;
+    e.preventDefault();
+  });
+  canvas.addEventListener('mousemove',e=>{
+    if(!AlignEng.isPan)return;
+    const r=rect();
+    AlignEng.tx=AlignEng.panTx0+(e.clientX-r.left-AlignEng.panSx);
+    AlignEng.ty=AlignEng.panTy0+(e.clientY-r.top-AlignEng.panSy);
+    AlignEng.redraw();e.preventDefault();
+  });
+  canvas.addEventListener('mouseup',()=>{AlignEng.isPan=false;});
+  canvas.addEventListener('mouseleave',()=>{AlignEng.isPan=false;});
+  // Mouse wheel: zoom image around cursor
+  canvas.addEventListener('wheel',e=>{
+    const r=rect();
+    const px=e.clientX-r.left,py=e.clientY-r.top;
+    const f=e.deltaY<0?1.06:0.94;
+    AlignEng._zoomAround(px,py,f);
+    AlignEng.redraw();e.preventDefault();
+  },{passive:false});
+
+  // ── TOUCH — one finger = pan image, two fingers = pinch zoom ──
+  canvas.addEventListener('touchstart',e=>{
+    e.preventDefault();
+    const r=rect();const ts=[...e.touches];
+    if(ts.length===1){
+      AlignEng.isPan=true;AlignEng.pinchDist0=0;
+      const[sx,sy]=tpos(ts[0],r);
+      AlignEng.panSx=sx;AlignEng.panSy=sy;
+      AlignEng.panTx0=AlignEng.tx;AlignEng.panTy0=AlignEng.ty;
+    } else if(ts.length===2){
+      AlignEng.isPan=false;
+      AlignEng.pinchDist0=pdist(ts);AlignEng.pinchScale0=AlignEng.scale;
+      const[mx,my]=pmid(ts,r);
+      AlignEng.pinchMx0=mx;AlignEng.pinchMy0=my;
+      AlignEng.pinchTx0=AlignEng.tx;AlignEng.pinchTy0=AlignEng.ty;
+    }
+  },{passive:false});
+  canvas.addEventListener('touchmove',e=>{
+    e.preventDefault();
+    const r=rect();const ts=[...e.touches];
+    if(ts.length===1&&AlignEng.isPan){
+      const[sx,sy]=tpos(ts[0],r);
+      AlignEng.tx=AlignEng.panTx0+(sx-AlignEng.panSx);
+      AlignEng.ty=AlignEng.panTy0+(sy-AlignEng.panSy);
+      AlignEng.redraw();
+    } else if(ts.length===2&&AlignEng.pinchDist0>0){
+      const nd=pdist(ts);
+      const[mx,my]=pmid(ts,r);
+      const newScale=Math.max(AlignEng.MIN_SCALE,Math.min(AlignEng.MAX_SCALE,AlignEng.pinchScale0*(nd/AlignEng.pinchDist0)));
+      // Zoom around the initial pinch midpoint, then pan with midpoint movement
+      AlignEng.tx=AlignEng.pinchMx0-(AlignEng.pinchMx0-AlignEng.pinchTx0)*(newScale/AlignEng.pinchScale0)+(mx-AlignEng.pinchMx0);
+      AlignEng.ty=AlignEng.pinchMy0-(AlignEng.pinchMy0-AlignEng.pinchTy0)*(newScale/AlignEng.pinchScale0)+(my-AlignEng.pinchMy0);
+      AlignEng.scale=newScale;
+      AlignEng.redraw();
+    }
+  },{passive:false});
+  canvas.addEventListener('touchend',e=>{AlignEng.isPan=false;});
+}
+
+function confirmAlign(){
+  const data=AlignEng.getAlignData();
+  if(!data){
+    // No image loaded yet — just proceed with defaults
+    App.alignData=null;
+  } else {
+    // ── POINT 12 (Optional Advanced Upgrade) ──────────────────────────────
+    // For perfect scoring regardless of camera angle, a 4-point perspective
+    // correction (homography warp) could be applied here before storing
+    // alignData. The user would tap 4 corners of the physical target,
+    // the image would be de-warped, and the scoring geometry would then be
+    // as accurate as an electronic target even for angled photos.
+    // Implement with: getPerspectiveTransform() + warpPerspective() pattern.
+    // ─────────────────────────────────────────────────────────────────────
+    App.alignData=data;
+    // Sync type to cfg
+    App.cfg=Object.assign({},App.cfg,{type:data.type});
+    App.saveCfg();
+  }
+  App.setState({view:'configure'});
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  CAMERA  (iOS Safari safe)
+//
+//  Strategy: inject HTML string into #root synchronously, then
+//  immediately query #camvid and set srcObject in the same tick.
+//  play() is called on loadedmetadata — the only reliable pattern
+//  on iOS Safari. All DOM creation is deferred AFTER innerHTML so
+//  a throw in buildCameraOverlaySVG can never block the video.
+// ══════════════════════════════════════════════════════════════════
+
 async function startCam(){
-  try{
-    const s=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment',width:{ideal:1920}}});
-    App.stream=s;App.setState({view:'camera'});
-    setTimeout(()=>{const v=document.getElementById('camvid');if(v)v.srcObject=s;},80);
-  }catch{toast('Camera unavailable — please upload an image');}
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){
+    toast('Camera not available on this browser');return;
+  }
+
+  // Fallback constraint chain — iOS rejects strict constraints silently
+  let stream=null,lastErr=null;
+  for(const c of[
+    {video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}}},
+    {video:{facingMode:'environment'}},
+    {video:true}
+  ]){
+    try{stream=await navigator.mediaDevices.getUserMedia(c);break;}
+    catch(e){lastErr=e;if(e.name==='NotAllowedError'||e.name==='PermissionDeniedError')break;}
+  }
+  if(!stream){
+    const n=lastErr?.name||'';
+    toast(n==='NotAllowedError'||n==='PermissionDeniedError'?'Camera blocked — Settings › Safari › Camera › Allow':
+          n==='NotFoundError'||n==='DevicesNotFoundError'?'No camera found — please upload an image':
+          'Camera unavailable — please upload an image');
+    return;
+  }
+
+  App.stream=stream;
+
+  // ── Step 1: inject HTML into root as a plain string ──
+  // Do NOT call App.setState — that triggers render() which may fail on iOS
+  // when a stream is active (symptom: red camera dot, home screen still showing).
+  const t=App.cfg?.type||'AIR_PISTOL_10M';
+  const chips=[['AIR_RIFLE_10M','10m RIFLE'],['AIR_PISTOL_10M','10m PISTOL']]
+    .map(([v,l])=>`<button class="cam-chip" data-t="${v}" onclick="setCamType('${v}')" style="font-family:var(--head);font-size:.58rem;letter-spacing:.12em;padding:5px 12px;border-radius:20px;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;border:1px solid ${v===t?'rgba(0,255,136,.7)':'rgba(255,255,255,.2)'};background:${v===t?'rgba(0,255,136,.22)':'rgba(255,255,255,.08)'};color:${v===t?'var(--green)':'rgba(255,255,255,.55)'}">${l}</button>`).join('');
+
+  // Build overlay SVG — wrapped in try/catch so it never blocks the video
+  let overlaySVG='';
+  try{overlaySVG=buildCameraOverlaySVG(t);}catch(e){console.warn('overlay:',e);}
+
+  document.getElementById('root').innerHTML=`
+<div id="cam-screen" style="position:fixed;top:0;left:0;width:100%;height:100%;background:#000;display:flex;flex-direction:column;z-index:9000;overflow:hidden">
+  <div style="flex:1;position:relative;overflow:hidden;min-height:0">
+    <video id="camvid" autoplay playsinline muted style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;display:block;transform:translateZ(0)"></video>
+    <div style="position:absolute;top:0;left:0;right:0;padding:max(14px,env(safe-area-inset-top,14px)) 16px 10px;display:flex;align-items:center;gap:12px;background:linear-gradient(rgba(0,0,0,.75),transparent);z-index:10">
+      <button onclick="stopCam()" style="width:44px;height:44px;border-radius:50%;background:rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.3);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;touch-action:manipulation">
+        <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <span style="font-family:var(--head);font-size:.72rem;letter-spacing:.2em;color:#fff;flex:1">CAMERA</span>
+      <div style="display:flex;gap:8px">${chips}</div>
+    </div>
+    <div id="cam-overlay" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:50">${overlaySVG}</div>
+    <div style="position:absolute;bottom:16px;left:0;right:0;text-align:center;pointer-events:none">
+      <span style="font-family:var(--head);font-size:.58rem;letter-spacing:.13em;color:rgba(255,255,255,.45);background:rgba(0,0,0,.45);padding:4px 12px;border-radius:20px">ALIGN TARGET TO GREEN RINGS</span>
+    </div>
+  </div>
+  <div style="flex-shrink:0;background:rgba(0,0,0,.92);border-top:1px solid rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center;gap:52px;padding:24px 0 calc(24px + env(safe-area-inset-bottom,0px))">
+    <button onclick="stopCam()" style="width:48px;height:48px;border-radius:50%;background:rgba(255,255,255,.12);border:1.5px solid rgba(255,255,255,.35);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;touch-action:manipulation">
+      <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <button id="shutter-btn" onclick="capturePhoto()" style="width:80px;height:80px;border-radius:50%;background:transparent;border:5px solid #fff;cursor:pointer;display:flex;align-items:center;justify-content:center;touch-action:manipulation;-webkit-tap-highlight-color:transparent" onpointerdown="this.style.transform='scale(.88)'" onpointerup="this.style.transform=''">
+      <div style="width:64px;height:64px;border-radius:50%;background:#fff"></div>
+    </button>
+    <div style="width:48px;height:48px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px">
+      <div style="font-family:var(--head);font-size:.4rem;letter-spacing:.1em;color:rgba(255,255,255,.35)">HOLD</div>
+      <div style="font-family:var(--head);font-size:.4rem;letter-spacing:.1em;color:rgba(255,255,255,.35)">STEADY</div>
+    </div>
+  </div>
+</div>`;
+
+  // ── Step 2: query video element — it's in the DOM now ──
+  const vid=document.getElementById('camvid');
+  if(!vid){console.error('camvid not found after innerHTML');return;}
+
+  // webkit-playsinline must be set as a DOM property for older iOS WebKit
+  vid.setAttribute('webkit-playsinline','');
+  vid.playsInline=true;
+
+  // ── Step 3: attach stream synchronously ──
+  vid.srcObject=stream;
+
+  // ── Step 4: play on loadedmetadata — the reliable iOS pattern ──
+  // iOS won't have metadata until srcObject is set; this fires reliably.
+  vid.addEventListener('loadedmetadata',function onMeta(){
+    vid.removeEventListener('loadedmetadata',onMeta);
+    vid.play().catch(err=>{
+      // AbortError on iOS = stream not fully ready, retry shortly
+      if(err.name==='AbortError')setTimeout(()=>vid.play().catch(()=>{}),300);
+    });
+  });
+  // Also attempt immediate play — resolves instantly if already ready
+  vid.play().catch(()=>{});
 }
-function stopCam(){if(App.stream){App.stream.getTracks().forEach(t=>t.stop());App.stream=null;}App.setState({view:'home'});}
+
+function stopCam(){
+  // Kill stream tracks first — before any DOM work — so camera light turns off
+  // even if something below throws
+  if(App.stream){
+    try{App.stream.getTracks().forEach(t=>{t.stop();});}catch(e){}
+    App.stream=null;
+  }
+  // Detach srcObject to release hardware on older iOS/Android
+  const vid=document.getElementById('camvid');
+  if(vid){try{vid.srcObject=null;vid.load();}catch(e){}}
+  App.setState({view:'home'});
+}
+
 function capturePhoto(){
-  const v=document.getElementById('camvid');if(!v)return;
-  const c=document.createElement('canvas');c.width=v.videoWidth;c.height=v.videoHeight;
-  c.getContext('2d').drawImage(v,0,0);
-  c.toBlob(b=>{App.imgUrl=URL.createObjectURL(b);App.stream?.getTracks().forEach(t=>t.stop());App.stream=null;App.setState({view:'configure'});}, 'image/jpeg',.95);
+  const vid=document.getElementById('camvid');
+  if(!vid)return;
+  // iOS: videoWidth/videoHeight are 0 until first frame — wait for it
+  if(!vid.videoWidth||!vid.videoHeight){
+    vid.addEventListener('canplay',function h(){vid.removeEventListener('canplay',h);capturePhoto();},{once:true});
+    return;
+  }
+  const c=document.createElement('canvas');
+  c.width=vid.videoWidth;c.height=vid.videoHeight;
+  c.getContext('2d').drawImage(vid,0,0);
+  c.toBlob(b=>{
+    if(!b)return;
+    App.imgUrl=URL.createObjectURL(b);
+    App.alignData=null;
+    if(App.stream){try{App.stream.getTracks().forEach(t=>t.stop());}catch(e){}App.stream=null;}
+    try{vid.srcObject=null;vid.load();}catch(e){}
+    App.setState({view:'align'});
+  },'image/jpeg',.95);
 }
-function openSession(id){
-  const s=DB.sessions.find(s=>s.id===id);if(!s)return;
+
+
+
 function openSession(id){
   const s=DB.sessions.find(s=>s.id===id);if(!s)return;
   App.results=s;App.viewSession=s;App.setState({view:'results'});
-}
 }
 function delSession(id){DB.del(id);toast('Session deleted');render();}
 function confirmClear(){if(confirm('Delete ALL saved sessions? This cannot be undone.')){DB.clear();App.results=null;toast('All sessions cleared');render();}}
@@ -2264,37 +3103,82 @@ function dlImg(url){
   const filename=`airscan_${Date.now()}.jpg`;
   fetch(url).then(r=>r.blob()).then(blob=>{
     const file=new File([blob],filename,{type:'image/jpeg'});
-    if(navigator.share&&navigator.canShare&&navigator.canShare({files:[file]})){
-      navigator.share({title:'AirScan Pro — Shot Analysis',text:'My shot analysis from AirScan Pro',files:[file]})
-        .catch(e=>{if(e.name!=='AbortError')_fallbackDl(url,filename);});
-    } else if(navigator.share){
-      // Share URL fallback (no file support)
-      const objUrl=URL.createObjectURL(blob);
-      navigator.share({title:'AirScan Pro — Shot Analysis',url:objUrl})
-        .catch(()=>_fallbackDl(url,filename));
-    } else {
-      _fallbackDl(url,filename);
-    }
+    const tryShare=async()=>{
+      if(navigator.share&&navigator.canShare&&navigator.canShare({files:[file]})){
+        try{await navigator.share({title:'AirScan Pro — Shot Analysis',text:'My shot analysis from AirScan Pro',files:[file]});}
+        catch(e){if(e.name!=='AbortError')_fallbackDl(URL.createObjectURL(blob),filename);}
+      } else if(navigator.share){
+        // Share URL fallback (no file support) — revoke after share resolves
+        const objUrl=URL.createObjectURL(blob);
+        try{await navigator.share({title:'AirScan Pro — Shot Analysis',url:objUrl});}
+        catch(e){if(e.name!=='AbortError')_fallbackDl(URL.createObjectURL(blob),filename);}
+        finally{URL.revokeObjectURL(objUrl);}
+      } else {
+        _fallbackDl(URL.createObjectURL(blob),filename);
+      }
+    };
+    tryShare();
   }).catch(()=>_fallbackDl(url,filename));
 }
 function dlCSV(){
   const r=App.results;if(!r?.scored?.length){toast('No data');return;}
-  const csv=['Shot,X,Y,Score,Decimal,Distance_px',...r.scored.map(s=>`${s.id},${~~s.cx},${~~s.cy},${s.score},${s.decimal},${s.dist_px.toFixed(1)}`)].join('\n');
-  const blob=new Blob([csv],{type:'text/csv'});
+  const cfg=r.cfg||App.cfg||{};
+  const spec=getISSFTargetSpec(cfg.type||'AIR_PISTOL_10M');
+  const pxMm=r.stats?.pxMm||1;
+  const dt=r.ts?new Date(r.ts).toISOString().slice(0,19).replace('T',' '):'';
+  // Session metadata rows followed by a blank line, then column headers
+  // BOM (\uFEFF) at the very start makes Excel auto-detect UTF-8 correctly
+  const rows=[
+    '\uFEFF# AirScan Pro — Shot Export',
+    `# Date,${dt}`,
+    `# Shooter,${Users.current?.name||''}`,
+    `# Target,${cfg.type||''}`,
+    `# Caliber,${cfg.caliber||''}`,
+    `# Scoring,${cfg.mode||''}`,
+    `# Total Score,${r.stats?.totalScore??''}/${r.stats?.maxScore??''}`,
+    `# Shots,${r.scored.length}`,
+    `# ES (mm),${r.stats?.extremeSpreadMm?.toFixed(2)||''}`,
+    `# MR (mm),${r.stats?.meanRadMm?.toFixed(2)||''}`,
+    '',
+    'Shot,X_px,Y_px,Score,Decimal,Distance_px,Distance_mm,MPI_offset_X_mm,MPI_offset_Y_mm',
+    ...r.scored.map(s=>{
+      const distMm=(s.dist_px/pxMm).toFixed(2);
+      const mpiOffX=r.stats?((s.cx-r.stats.mpiX)/pxMm).toFixed(2):'';
+      const mpiOffY=r.stats?((s.cy-r.stats.mpiY)/pxMm).toFixed(2):'';
+      return`${s.id},${~~s.cx},${~~s.cy},${s.score},${s.decimal},${s.dist_px.toFixed(1)},${distMm},${mpiOffX},${mpiOffY}`;
+    })
+  ];
+  const csv=rows.join('\n');
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
   const filename=`airscan_shots_${Date.now()}.csv`;
-  const file=new File([blob],filename,{type:'text/csv'});
-  if(navigator.share&&navigator.canShare&&navigator.canShare({files:[file]})){
-    navigator.share({title:'AirScan Pro — Shot Data',text:'My shot data export from AirScan Pro',files:[file]})
-      .catch(e=>{if(e.name!=='AbortError')_fallbackDl(URL.createObjectURL(blob),filename);});
-  } else if(navigator.share){
-    navigator.share({title:'AirScan Pro — Shot Data',text:csv})
-      .catch(()=>_fallbackDl(URL.createObjectURL(blob),filename));
-  } else {
-    _fallbackDl(URL.createObjectURL(blob),filename);
-  }
+  // Share as file (Android/iOS), then fallback to text share, then download
+  const tryShare=async()=>{
+    const file=new File([blob],filename,{type:'text/csv'});
+    if(navigator.share&&navigator.canShare&&navigator.canShare({files:[file]})){
+      try{await navigator.share({title:'AirScan Pro — Shot Data',files:[file]});}
+      catch(e){if(e.name!=='AbortError')_fallbackDl(URL.createObjectURL(blob),filename);}
+    } else if(navigator.share){
+      // Platform supports share but not file share — share as text
+      try{await navigator.share({title:'AirScan Pro — Shot Data',text:csv});}
+      catch(e){if(e.name!=='AbortError')_fallbackDl(URL.createObjectURL(blob),filename);}
+    } else {
+      _fallbackDl(URL.createObjectURL(blob),filename);
+    }
+  };
+  tryShare();
 }
 function _fallbackDl(url,filename){
-  const a=document.createElement('a');a.href=url;a.download=filename;a.click();
+  // Must append to DOM for Firefox + Android WebView reliability
+  const a=document.createElement('a');
+  a.href=url;a.download=filename;a.style.display='none';
+  document.body.appendChild(a);
+  a.click();
+  // Remove and revoke after a short delay to let the download start
+  setTimeout(()=>{
+    document.body.removeChild(a);
+    // Only revoke blob: URLs we own — not external URLs passed in
+    if(url.startsWith('blob:'))URL.revokeObjectURL(url);
+  },250);
   toast('File saved!');
 }
 function printReport(){
@@ -2319,12 +3203,20 @@ async function applyEdits(){
   if(!Ed.img||!Ed.shots.length){
     toast('Place at least one shot first');return;
   }
+  // Point 9: Warn if scoring a real photo without alignment data.
+  // Demo images are synthetically centred so the fallback is safe there.
+  // For any real uploaded/camera image, alignment must have been confirmed.
+  const isDemo=App.results?.id&&String(App.results.id).startsWith('demo');
+  if(!App.alignData&&!isDemo){
+    // Still allow scoring but warn the user — scores may be inaccurate
+    toast('⚠️ No alignment data — scores may be inaccurate. Use RE-ALIGN first.',4500);
+  }
   const canvas=document.createElement('canvas');
   canvas.width=Ed.imgW;canvas.height=Ed.imgH;
   canvas.getContext('2d').drawImage(Ed.img,0,0);
-  const newScored=scoreShots(Ed.shots,canvas,App.results?.cfg?.mode||'integer');
-  const newStats=calcStats(newScored,canvas);
-  const newOverlay=drawOverlay(canvas,newScored,newStats);
+  const newScored=scoreShots(Ed.shots,canvas,App.cfg||App.results?.cfg||{});
+  const newStats=calcStats(newScored,canvas,App.cfg||App.results?.cfg||{});
+  const newOverlay=drawOverlay(canvas,newScored,newStats,App.cfg||App.results?.cfg||{});
   // Keep overlay in memory for immediate display — never written to DB
   App.results={...App.results,scored:newScored,stats:newStats,overlayUrl:newOverlay,pending:false};
   // Strip images before saving — only scores/stats/coords go to localStorage
